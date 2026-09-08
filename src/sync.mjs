@@ -83,7 +83,7 @@ export class SyncClient {
       const l = localMap.get(id),
         r = remoteMap.get(id),
         b = base[id];
-      if (!r && b?.project && b?.owner !== this.user.id) {
+      if (!r && b?.project) {
         decisions.push({ id, kind: b.kind, remove: true });
         continue;
       }
