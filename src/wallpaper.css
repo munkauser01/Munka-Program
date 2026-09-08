@@ -1,0 +1,38 @@
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  color: #20271c;
+}
+#background {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+}
+section {
+  position: absolute;
+  right: 5vw;
+  top: 8vh;
+  width: 330px;
+  background: #f8f8f3;
+  padding: 28px;
+  border-radius: 16px;
+}
+h1 {
+  font-size: 32px;
+  margin: 0;
+}
+p {
+  color: #56634a;
+}
+article {
+  padding: 16px 0;
+  border-top: 1px solid #d9ddce;
+  font-size: 20px;
+}
+small {
+  display: block;
+  font-size: 14px;
+  color: #56634a;
+  margin-top: 6px;
+}
