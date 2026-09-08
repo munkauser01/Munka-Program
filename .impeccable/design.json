@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-08T21:50:41.765Z",
+  "title": "Design System: Munka",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "bg",
+        "tonalRamp": [
+          "oklch(15% 0.0066 106.52)",
+          "oklch(26.4% 0.0066 106.52)",
+          "oklch(37.9% 0.0066 106.52)",
+          "oklch(49.3% 0.0066 106.52)",
+          "oklch(60.7% 0.0066 106.52)",
+          "oklch(72.1% 0.0066 106.52)",
+          "oklch(83.6% 0.0066 106.52)",
+          "oklch(95% 0.0066 106.52)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "panel",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26.4% 0.0000 89.88)",
+          "oklch(37.9% 0.0000 89.88)",
+          "oklch(49.3% 0.0000 89.88)",
+          "oklch(60.7% 0.0000 89.88)",
+          "oklch(72.1% 0.0000 89.88)",
+          "oklch(83.6% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "nav": {
+        "role": "neutral",
+        "displayName": "nav",
+        "tonalRamp": [
+          "oklch(15% 0.0136 120.28)",
+          "oklch(26.4% 0.0136 120.28)",
+          "oklch(37.9% 0.0136 120.28)",
+          "oklch(49.3% 0.0136 120.28)",
+          "oklch(60.7% 0.0136 120.28)",
+          "oklch(72.1% 0.0136 120.28)",
+          "oklch(83.6% 0.0136 120.28)",
+          "oklch(95% 0.0136 120.28)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "ink",
+        "tonalRamp": [
+          "oklch(15% 0.0182 145.08)",
+          "oklch(26.4% 0.0182 145.08)",
+          "oklch(37.9% 0.0182 145.08)",
+          "oklch(49.3% 0.0182 145.08)",
+          "oklch(60.7% 0.0182 145.08)",
+          "oklch(72.1% 0.0182 145.08)",
+          "oklch(83.6% 0.0182 145.08)",
+          "oklch(95% 0.0182 145.08)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "tonalRamp": [
+          "oklch(15% 0.0222 140.47)",
+          "oklch(26.4% 0.0222 140.47)",
+          "oklch(37.9% 0.0222 140.47)",
+          "oklch(49.3% 0.0222 140.47)",
+          "oklch(60.7% 0.0222 140.47)",
+          "oklch(72.1% 0.0222 140.47)",
+          "oklch(83.6% 0.0222 140.47)",
+          "oklch(95% 0.0222 140.47)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "line",
+        "tonalRamp": [
+          "oklch(15% 0.0170 125.31)",
+          "oklch(26.4% 0.0170 125.31)",
+          "oklch(37.9% 0.0170 125.31)",
+          "oklch(49.3% 0.0170 125.31)",
+          "oklch(60.7% 0.0170 125.31)",
+          "oklch(72.1% 0.0170 125.31)",
+          "oklch(83.6% 0.0170 125.31)",
+          "oklch(95% 0.0170 125.31)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "accent",
+        "tonalRamp": [
+          "oklch(15% 0.0708 134.19)",
+          "oklch(26.4% 0.0708 134.19)",
+          "oklch(37.9% 0.0708 134.19)",
+          "oklch(49.3% 0.0708 134.19)",
+          "oklch(60.7% 0.0708 134.19)",
+          "oklch(72.1% 0.0708 134.19)",
+          "oklch(83.6% 0.0708 134.19)",
+          "oklch(95% 0.0708 134.19)"
+        ]
+      },
+      "tint": {
+        "role": "primary",
+        "displayName": "tint",
+        "tonalRamp": [
+          "oklch(15% 0.0210 124.67)",
+          "oklch(26.4% 0.0210 124.67)",
+          "oklch(37.9% 0.0210 124.67)",
+          "oklch(49.3% 0.0210 124.67)",
+          "oklch(60.7% 0.0210 124.67)",
+          "oklch(72.1% 0.0210 124.67)",
+          "oklch(83.6% 0.0210 124.67)",
+          "oklch(95% 0.0210 124.67)"
+        ]
+      },
+      "danger": {
+        "role": "primary",
+        "displayName": "danger",
+        "tonalRamp": [
+          "oklch(15% 0.1293 31.05)",
+          "oklch(26.4% 0.1293 31.05)",
+          "oklch(37.9% 0.1293 31.05)",
+          "oklch(49.3% 0.1293 31.05)",
+          "oklch(60.7% 0.1293 31.05)",
+          "oklch(72.1% 0.1293 31.05)",
+          "oklch(83.6% 0.1293 31.05)",
+          "oklch(95% 0.1293 31.05)"
+        ]
+      },
+      "dark-bg": {
+        "role": "neutral",
+        "displayName": "dark bg",
+        "tonalRamp": [
+          "oklch(15% 0.0160 152.73)",
+          "oklch(26.4% 0.0160 152.73)",
+          "oklch(37.9% 0.0160 152.73)",
+          "oklch(49.3% 0.0160 152.73)",
+          "oklch(60.7% 0.0160 152.73)",
+          "oklch(72.1% 0.0160 152.73)",
+          "oklch(83.6% 0.0160 152.73)",
+          "oklch(95% 0.0160 152.73)"
+        ]
+      },
+      "dark-panel": {
+        "role": "neutral",
+        "displayName": "dark panel",
+        "tonalRamp": [
+          "oklch(15% 0.0199 150.94)",
+          "oklch(26.4% 0.0199 150.94)",
+          "oklch(37.9% 0.0199 150.94)",
+          "oklch(49.3% 0.0199 150.94)",
+          "oklch(60.7% 0.0199 150.94)",
+          "oklch(72.1% 0.0199 150.94)",
+          "oklch(83.6% 0.0199 150.94)",
+          "oklch(95% 0.0199 150.94)"
+        ]
+      },
+      "dark-nav": {
+        "role": "neutral",
+        "displayName": "dark nav",
+        "tonalRamp": [
+          "oklch(15% 0.0250 144.88)",
+          "oklch(26.4% 0.0250 144.88)",
+          "oklch(37.9% 0.0250 144.88)",
+          "oklch(49.3% 0.0250 144.88)",
+          "oklch(60.7% 0.0250 144.88)",
+          "oklch(72.1% 0.0250 144.88)",
+          "oklch(83.6% 0.0250 144.88)",
+          "oklch(95% 0.0250 144.88)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "dark ink",
+        "tonalRamp": [
+          "oklch(15% 0.0108 118.03)",
+          "oklch(26.4% 0.0108 118.03)",
+          "oklch(37.9% 0.0108 118.03)",
+          "oklch(49.3% 0.0108 118.03)",
+          "oklch(60.7% 0.0108 118.03)",
+          "oklch(72.1% 0.0108 118.03)",
+          "oklch(83.6% 0.0108 118.03)",
+          "oklch(95% 0.0108 118.03)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "dark muted",
+        "tonalRamp": [
+          "oklch(15% 0.0236 134.98)",
+          "oklch(26.4% 0.0236 134.98)",
+          "oklch(37.9% 0.0236 134.98)",
+          "oklch(49.3% 0.0236 134.98)",
+          "oklch(60.7% 0.0236 134.98)",
+          "oklch(72.1% 0.0236 134.98)",
+          "oklch(83.6% 0.0236 134.98)",
+          "oklch(95% 0.0236 134.98)"
+        ]
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "dark line",
+        "tonalRamp": [
+          "oklch(15% 0.0342 138.77)",
+          "oklch(26.4% 0.0342 138.77)",
+          "oklch(37.9% 0.0342 138.77)",
+          "oklch(49.3% 0.0342 138.77)",
+          "oklch(60.7% 0.0342 138.77)",
+          "oklch(72.1% 0.0342 138.77)",
+          "oklch(83.6% 0.0342 138.77)",
+          "oklch(95% 0.0342 138.77)"
+        ]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "dark accent",
+        "tonalRamp": [
+          "oklch(15% 0.0696 127.92)",
+          "oklch(26.4% 0.0696 127.92)",
+          "oklch(37.9% 0.0696 127.92)",
+          "oklch(49.3% 0.0696 127.92)",
+          "oklch(60.7% 0.0696 127.92)",
+          "oklch(72.1% 0.0696 127.92)",
+          "oklch(83.6% 0.0696 127.92)",
+          "oklch(95% 0.0696 127.92)"
+        ]
+      },
+      "dark-tint": {
+        "role": "primary",
+        "displayName": "dark tint",
+        "tonalRamp": [
+          "oklch(15% 0.0434 136.38)",
+          "oklch(26.4% 0.0434 136.38)",
+          "oklch(37.9% 0.0434 136.38)",
+          "oklch(49.3% 0.0434 136.38)",
+          "oklch(60.7% 0.0434 136.38)",
+          "oklch(72.1% 0.0434 136.38)",
+          "oklch(83.6% 0.0434 136.38)",
+          "oklch(95% 0.0434 136.38)"
+        ]
+      },
+      "dark-danger": {
+        "role": "primary",
+        "displayName": "dark danger",
+        "tonalRamp": [
+          "oklch(15% 0.0837 33.69)",
+          "oklch(26.4% 0.0837 33.69)",
+          "oklch(37.9% 0.0837 33.69)",
+          "oklch(49.3% 0.0837 33.69)",
+          "oklch(60.7% 0.0837 33.69)",
+          "oklch(72.1% 0.0837 33.69)",
+          "oklch(83.6% 0.0837 33.69)",
+          "oklch(95% 0.0837 33.69)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Interface headline",
+        "purpose": "Page headings; not a marketing display-face prescription."
+      },
+      "title": {
+        "displayName": "Section title",
+        "purpose": "Ordinary section headings."
+      },
+      "body": {
+        "displayName": "Interface body",
+        "purpose": "Default UI copy."
+      },
+      "label": {
+        "displayName": "Field label",
+        "purpose": "Labels above form fields."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 12px 36px #1b261520",
+        "purpose": "Drawer and toast."
+      }
+    ],
+    "motion": [
+      {
+        "name": "drawer-entry",
+        "value": "enter 0.2s ease-out",
+        "purpose": "translateX(20px) / opacity .8 to translateX(0) / opacity 1; removed for reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1150px"
+      },
+      {
+        "name": "stacked-agenda",
+        "value": "940px"
+      },
+      {
+        "name": "horizontal-navigation",
+        "value": "650px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "A principal action.",
+      "html": "<button class=\"ds-button ds-primary\">Add task</button>",
+      "css": ".ds-button{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;cursor:pointer;color:var(--ink,#252d25);background:var(--panel,#fff);border:1px solid var(--line,#dce1d5);padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px}.ds-button:hover{background:var(--tint,#e4eadb)}.ds-button:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}.ds-button:disabled{opacity:.5;cursor:not-allowed}.ds-primary{background:var(--accent,#526c42);color:var(--bg,#f8f8f3);border-color:var(--accent,#526c42)}.ds-primary:hover{background:var(--accent,#526c42);filter:brightness(.93)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A supporting action.",
+      "html": "<button class=\"ds-button\">Desktop reminders</button>",
+      "css": ".ds-button{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;cursor:pointer;color:var(--ink,#252d25);background:var(--panel,#fff);border:1px solid var(--line,#dce1d5);padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px}.ds-button:hover{background:var(--tint,#e4eadb)}.ds-button:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}.ds-button:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "A low-emphasis action.",
+      "html": "<button class=\"ds-button ds-quiet\">Plan a session</button>",
+      "css": ".ds-button{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;cursor:pointer;color:var(--ink,#252d25);background:var(--panel,#fff);border:1px solid var(--line,#dce1d5);padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px}.ds-button:hover{background:var(--tint,#e4eadb)}.ds-button:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}.ds-button:disabled{opacity:.5;cursor:not-allowed}.ds-quiet,.ds-quiet:hover{background:transparent;border-color:transparent}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "A destructive action.",
+      "html": "<button class=\"ds-button ds-danger\">Delete task</button>",
+      "css": ".ds-button{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;cursor:pointer;color:var(--ink,#252d25);background:var(--panel,#fff);border:1px solid var(--line,#dce1d5);padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px}.ds-button:hover{background:var(--tint,#e4eadb)}.ds-button:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}.ds-button:disabled{opacity:.5;cursor:not-allowed}.ds-danger{color:var(--danger,#a34435)}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "An editable field with an explicit label.",
+      "html": "<label class=\"ds-field\"><span>Task title</span><input placeholder=\"What needs doing?\"></label>",
+      "css": ".ds-field{display:block;font:15px 'Segoe UI Variable','Segoe UI',sans-serif}.ds-field span{display:block;font-size:12px;font-weight:600;color:var(--muted,#626c60);margin-bottom:7px}.ds-field input{font:inherit;border:1px solid var(--line,#dce1d5);border-radius:7px;padding:10px 12px;background:var(--panel,#fff);color:var(--ink,#252d25);width:100%;caret-color:var(--accent,#526c42)}.ds-field input::placeholder{color:var(--muted,#626c60)}.ds-field input:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}"
+    },
+    {
+      "name": "Active Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "The current workspace destination.",
+      "html": "<nav aria-label=\"Main navigation\"><button class=\"ds-button ds-nav\" aria-current=\"page\">Today</button></nav>",
+      "css": ".ds-button{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;cursor:pointer;color:var(--ink,#252d25);background:var(--panel,#fff);border:1px solid var(--line,#dce1d5);padding:9px 14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px}.ds-button:hover{background:var(--tint,#e4eadb)}.ds-button:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}.ds-button:disabled{opacity:.5;cursor:not-allowed}.ds-nav{justify-content:flex-start;border:0;padding:12px 14px;font-weight:550;background:var(--tint,#e4eadb);color:var(--accent,#526c42)}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Compact noninteractive task metadata.",
+      "html": "<span class=\"ds-badge\">In progress</span>",
+      "css": ".ds-badge{font:11px 'Segoe UI Variable','Segoe UI',sans-serif;padding:3px 7px;background:var(--tint,#e4eadb);color:var(--accent,#526c42);border-radius:4px}"
+    },
+    {
+      "name": "Collection Card",
+      "kind": "card",
+      "refersTo": "collection-card",
+      "description": "A flat course or project container.",
+      "html": "<article class=\"ds-card\"><h3>Research project</h3><p>Tasks and planned work</p></article>",
+      "css": ".ds-card{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;background:var(--panel,#fff);color:var(--ink,#252d25);border:1px solid var(--line,#dce1d5);padding:23px;border-radius:12px}.ds-card h3{font-size:15px;font-weight:650;margin:0 0 10px}.ds-card p{font-size:13px;color:var(--muted,#626c60);line-height:1.6;max-width:70ch;margin-top:0}"
+    },
+    {
+      "name": "Task Ledger Row",
+      "kind": "custom",
+      "description": "Completion and task details are separate controls.",
+      "html": "<div class=\"ds-row\"><button class=\"ds-check\" aria-label=\"Complete task\"></button><button class=\"ds-task\"><span class=\"ds-title\">Read the next chapter</span><span class=\"ds-meta\">Course · Today</span></button></div>",
+      "css": ".ds-row{font:15px 'Segoe UI Variable','Segoe UI',sans-serif;display:flex;align-items:center;gap:12px;padding:16px 3px;border-bottom:1px solid var(--line,#dce1d5);color:var(--ink,#252d25)}.ds-check{cursor:pointer;width:21px;height:21px;padding:0;flex-shrink:0;border:1px solid #909c87;border-radius:50%;background:transparent}.ds-task{font:inherit;cursor:pointer;display:block;border:0;background:transparent;text-align:left;padding:0;flex:1;min-width:0;color:inherit;min-height:38px}.ds-task:hover{color:var(--accent,#526c42)}.ds-title{display:block;font-weight:550;overflow-wrap:anywhere}.ds-meta{font-size:12px;color:var(--muted,#626c60);display:flex;gap:9px;margin-top:6px;flex-wrap:wrap}.ds-check:focus-visible,.ds-task:focus-visible{outline:2px solid var(--accent,#526c42);outline-offset:4px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A readable desk",
+    "overview": "Munka brings tasks and planned time into a warm, readable desktop workspace. Sage navigation, paper surfaces, dark text, and the original hanging monkey emblem express the approved calm, helpful character with restrained playfulness.\n\nThe interface favors readable rows and contextual details. Color and softly curved surfaces separate actions and supporting content without making each task a floating card. This document records the current renderer in `src/styles.css` and `src/app.mjs`; the wallpaper renderer is a compact, separately styled companion.",
+    "keyCharacteristics": [
+      "Warm paper with muted sage and olive.",
+      "Clear task rows and understated dividers.",
+      "Rounded controls and flat supporting surfaces.",
+      "Original monkey emblem with restrained personality.",
+      "Visible keyboard focus and reduced-motion support."
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Color Rule",
+        "body": "Use the same semantic role for the same state in light and dark mode.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Row Rule",
+        "body": "Let task titles wrap and metadata flow onto another line rather than hiding task meaning.",
+        "section": "typography"
+      },
+      {
+        "name": "The Overlay Depth Rule",
+        "body": "Keep routine rows and collection cards flat; reserve the shared shadow for content above the workspace.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the original hanging monkey emblem.",
+      "Do use semantic color roles across light and dark themes.",
+      "Do keep tasks readable as wrapping rows with secondary metadata.",
+      "Do maintain visible keyboard focus and reduced-motion behavior.",
+      "Do distinguish deadlines from planned schedule time in the interface."
+    ],
+    "donts": [
+      "Don't turn ordinary task rows into elevated cards.",
+      "Don't replace the original logo with a generic mascot.",
+      "Don't treat the wallpaper's fixed light colors as dark-theme tokens.",
+      "Don't infer a decorative display font or a marketing typography system from the Windows interface."
+    ]
+  }
+}
