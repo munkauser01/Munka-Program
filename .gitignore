@@ -1,0 +1,7 @@
+node_modules/
+work/
+outputs/release/
+.env*
+!.env.example
+*.log
+.impeccable/review/
