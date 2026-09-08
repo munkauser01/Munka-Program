@@ -1,0 +1,25 @@
+# Munka
+
+Windows planner for school and daily life. Your day, in sight.
+
+## Development
+
+Requires Node.js 24 and pnpm. Run `pnpm install`, `pnpm start`, `pnpm test`, and `pnpm pack` to build the per-user Windows installer. If dependency scripts are disabled, run `node node_modules/electron/install.js` after installation. `pnpm preview` opens a browser development preview; Windows integrations require the Electron app.
+
+## Project records
+
+- [Approved product requirements](outputs/PRD.md)
+- [Roadmap and milestone evidence](outputs/Implementation-Status.md)
+- [Architecture and decisions](outputs/Architecture.md)
+- [Acceptance checklist](outputs/Acceptance.md)
+- [Asset inventory](outputs/Asset-Inventory.md)
+
+The supplied mobile deck provides branding. This product is a Windows desktop application. Real user data, credentials, local backups, and runtime logs are excluded from version control.
+
+## Optional synchronization
+
+The Node.js service in `server/` uses SQLite, password hashing, expiring sessions, invitations, project roles, revision checks, and record history. It requires deployment before PCs can synchronize remotely. See the architecture document for setup and limitations. Local planning does not require a server.
+
+## Release status
+
+This is an early implementation, not a production-certified release. The implementation status and acceptance checklist distinguish tested behavior, manual checks still needed, and remaining PRD gaps.
