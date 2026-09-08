@@ -94,7 +94,9 @@ app.whenReady().then(async () => {
     await w.webContents.executeJavaScript(
       `document.getAnimations().forEach(a=>a.finish())`,
     );
-    await w.webContents.insertCSS(".drawer{animation:none!important;opacity:1!important;transform:none!important}");
+    await w.webContents.insertCSS(
+      ".drawer{animation:none!important;opacity:1!important;transform:none!important}",
+    );
     await delay(300);
     fs.writeFileSync(
       path.join(out, "task-details.png"),
