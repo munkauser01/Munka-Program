@@ -1,0 +1,180 @@
+// Run with Electron, not node. Uses a disposable planner inside the workspace.
+const path = require("node:path"),
+  fs = require("node:fs");
+process.env.MUNKA_TEST_DATA = path.resolve("work/native-smoke-" + Date.now());
+const { app, BrowserWindow } = require("electron");
+require("../electron/main.cjs");
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+app.whenReady().then(async () => {
+  try {
+    let w;
+    for (let i = 0; i < 100; i++) {
+      w = BrowserWindow.getAllWindows()[0];
+      if (w && !w.webContents.isLoading()) break;
+      await delay(100);
+    }
+    await delay(500);
+    w.webContents.setBackgroundThrottling(false);
+    w.showInactive();
+    await w.webContents.insertCSS("*{animation:none!important}");
+    const errors = [];
+    w.webContents.on("console-message", (_e, _level, message) => {
+      if (message.includes("Error")) errors.push(message);
+    });
+    await w.webContents.executeJavaScript(
+      `(async()=>{let s=await window.munka.load();s.preferences.theme='light';s.preferences.background=false;await window.munka.save(s,s.revision);return true})()`,
+    );
+    await w.reload();
+    await delay(800);
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-action="sample"]')?.click()`,
+    );
+    await delay(300);
+    const count = await w.webContents.executeJavaScript(
+      `document.querySelectorAll('.task-row').length`,
+    );
+    if (count < 4) throw Error("Sample onboarding did not populate tasks");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('#quick-add input').value='Native persistence check';document.querySelector('#quick-add').requestSubmit()`,
+    );
+    await delay(300);
+    let stored = JSON.parse(
+      fs.readFileSync(
+        path.join(process.env.MUNKA_TEST_DATA, "planner.json"),
+        "utf8",
+      ),
+    );
+    if (!stored.tasks.some((t) => t.title === "Native persistence check"))
+      throw Error("Native save failed");
+    await w.reload();
+    await delay(500);
+    const persisted = await w.webContents.executeJavaScript(
+      `document.body.innerText.includes('Native persistence check')`,
+    );
+    if (!persisted) throw Error("Reload lost saved task");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-action="new-task"]').click();document.querySelector('#detail-form [name=title]').value='Task details smoke';document.querySelector('#detail-form').requestSubmit()`,
+    );
+    await delay(300);
+    if (
+      !JSON.parse(
+        fs.readFileSync(
+          path.join(process.env.MUNKA_TEST_DATA, "planner.json"),
+          "utf8",
+        ),
+      ).tasks.some((t) => t.title === "Task details smoke")
+    )
+      throw Error("Task form failed");
+    await w.webContents.executeJavaScript(
+      `(async()=>{const s=await window.munka.load();s.tasks=s.tasks.filter(t=>!['Native persistence check','Task details smoke'].includes(t.title));await window.munka.save(s,s.revision);document.querySelector('#toast').classList.remove('visible')})()`,
+    );
+    const out = path.resolve(".impeccable/review");
+    fs.mkdirSync(out, { recursive: true });
+    w.setContentSize(1380, 900);
+    await delay(200);
+    fs.writeFileSync(
+      path.join(out, "desktop.png"),
+      (await w.webContents.capturePage()).toPNG(),
+    );
+    w.setContentSize(900, 760);
+    await delay(200);
+    fs.writeFileSync(
+      path.join(out, "small-desktop.png"),
+      (await w.webContents.capturePage()).toPNG(),
+    );
+    w.setContentSize(1380, 900);
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-action="new-task"]').focus();document.querySelector('[data-action="new-task"]').click()`,
+    );
+    await delay(200);
+    const dialogOk = await w.webContents.executeJavaScript(
+      `document.querySelector('.drawer').getAttribute('role')==='dialog'&&document.querySelector('#app').inert`,
+    );
+    if (!dialogOk) throw Error("Dialog accessibility failed");
+    await w.webContents.executeJavaScript(
+      `document.getAnimations().forEach(a=>a.finish())`,
+    );
+    await w.webContents.insertCSS(".drawer{animation:none!important;opacity:1!important;transform:none!important}");
+    await delay(300);
+    fs.writeFileSync(
+      path.join(out, "task-details.png"),
+      (await w.webContents.capturePage()).toPNG(),
+    );
+    await w.webContents.executeJavaScript(
+      `document.querySelector('#close-drawer').click()`,
+    );
+    if (
+      !(await w.webContents.executeJavaScript(
+        `document.activeElement.dataset.action==='new-task'`,
+      ))
+    )
+      throw Error("Drawer focus did not return");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-complete]').focus();document.querySelector('[data-complete]').click()`,
+    );
+    await delay(200);
+    if (
+      !(await w.webContents.executeJavaScript(
+        `document.activeElement.dataset.complete||document.activeElement.closest('#quick-add')`,
+      ))
+    )
+      throw Error("Task completion focus lost");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-view="settings"]').click();document.querySelector('[data-toggle="dev"]').click()`,
+    );
+    await delay(200);
+    const dev = await w.webContents.executeJavaScript(
+      `Boolean(document.querySelector('[data-view="dev"]'))`,
+    );
+    if (!dev) throw Error("Dev mode did not reveal tools");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('[data-view="calendar"]').click()`,
+    );
+    await delay(100);
+    if (
+      (await w.webContents.executeJavaScript(
+        `document.querySelectorAll('.calendar-cell').length`,
+      )) !== 7
+    )
+      throw Error("Week calendar failed");
+    await w.webContents.executeJavaScript(
+      `(async()=>{const s=await window.munka.load();s.preferences.widget=true;await window.munka.save(s,s.revision)})()`,
+    );
+    await delay(600);
+    if (BrowserWindow.getAllWindows().length < 2)
+      throw Error("Widget did not open");
+    const widget = BrowserWindow.getAllWindows().find((x) => x !== w);
+    if (
+      !(await widget.webContents.executeJavaScript(
+        `document.body.innerText.includes('Your day, in sight.')`,
+      ))
+    )
+      throw Error("Widget renderer failed");
+    fs.writeFileSync(
+      path.join(out, "widget.png"),
+      (await widget.webContents.capturePage()).toPNG(),
+    );
+    await w.webContents.executeJavaScript(
+      `(async()=>{const s=await window.munka.load();s.preferences.widget=false;await window.munka.save(s,s.revision)})()`,
+    );
+    console.log(
+      JSON.stringify({
+        passed: true,
+        checks: [
+          "native task save",
+          "reload persistence",
+          "task details form",
+          "Dev Mode",
+          "week calendar",
+          "independent widget",
+        ],
+        screenshots: out,
+        consoleErrors: errors,
+      }),
+    );
+    app.quit();
+  } catch (e) {
+    console.error(e.stack);
+    app.exit(1);
+  }
+});
