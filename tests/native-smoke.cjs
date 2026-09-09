@@ -156,6 +156,18 @@ app.whenReady().then(async () => {
       path.join(out, "widget.png"),
       (await widget.webContents.capturePage()).toPNG(),
     );
+    const widgetTitle = await widget.webContents.executeJavaScript(
+      `(()=>{const task=document.querySelector('[data-task]');const title=task.querySelector('.task-title').textContent;task.click();return title})()`,
+    );
+    await delay(300);
+    const openedTitle = await w.webContents.executeJavaScript(
+      `document.querySelector('#detail-form [name=title]')?.value`,
+    );
+    if (openedTitle !== widgetTitle)
+      throw Error("Widget did not open the selected task in the main window");
+    await w.webContents.executeJavaScript(
+      `document.querySelector('#close-drawer').click()`,
+    );
     await w.webContents.executeJavaScript(
       `(async()=>{const s=await window.munka.load();s.preferences.widget=false;await window.munka.save(s,s.revision)})()`,
     );
@@ -169,6 +181,7 @@ app.whenReady().then(async () => {
           "Dev Mode",
           "week calendar",
           "independent widget",
+          "widget opens selected task",
         ],
         screenshots: out,
         consoleErrors: errors,
