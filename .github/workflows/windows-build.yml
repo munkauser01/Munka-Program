@@ -30,6 +30,8 @@ jobs:
         run: node scripts/test-native.cjs
       - name: Build unsigned Windows preview
         run: node scripts/build-windows.cjs
+      - name: Verify installed startup and single instance
+        run: node scripts/test-installed.cjs
       - name: Preserve installer
         uses: actions/upload-artifact@v7
         with:
