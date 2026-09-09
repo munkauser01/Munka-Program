@@ -1,4 +1,4 @@
-// This placeholder is populated with extracted source assets by the release script.
+// Recreate the original extracted logo assets from the repository's text payload.
 const fs = require("node:fs"),
   path = require("node:path");
 const source = path.join(__dirname, "asset-data.json");
