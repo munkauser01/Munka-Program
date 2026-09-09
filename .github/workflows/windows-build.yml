@@ -13,7 +13,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: "24"
           package-manager-cache: false
       - name: Install locked dependencies
         run: |
@@ -22,6 +22,12 @@ jobs:
           node node_modules/electron/install.js
       - name: Test planner and sync service
         run: node --test tests/*.test.mjs
+      - name: Restore brand assets
+        run: node scripts/prepare-assets.cjs
+      - name: Verify sandboxed Electron startup
+        run: node scripts/probe-runtime.cjs
+      - name: Exercise native app without compatibility flags
+        run: node scripts/test-native.cjs
       - name: Build unsigned Windows preview
         run: node scripts/build-windows.cjs
       - name: Preserve installer
