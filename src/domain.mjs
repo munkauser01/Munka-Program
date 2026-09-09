@@ -90,6 +90,11 @@ export function complete(s, id, now = new Date()) {
       t.date || dateKey(now),
       t.recurrence === "Weekly" ? 7 : 1,
     );
+    const reminder = t.reminder ? new Date(t.reminder) : null;
+    if (reminder)
+      reminder.setDate(
+        reminder.getDate() + (t.recurrence === "Weekly" ? 7 : 1),
+      );
     const next = task({
       ...t,
       id: uid(),
@@ -99,12 +104,7 @@ export function complete(s, id, now = new Date()) {
       nextOccurrence: null,
       previousOccurrence: t.id,
       subtasks: t.subtasks.map((x) => ({ ...x, done: false })),
-      reminder: t.reminder
-        ? new Date(
-            new Date(t.reminder).getTime() +
-              (t.recurrence === "Weekly" ? 7 : 1) * 86400000,
-          ).toISOString()
-        : "",
+      reminder: reminder ? reminder.toISOString() : "",
     });
     t.nextOccurrence = next.id;
     s.tasks.push(next);
