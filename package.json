@@ -28,6 +28,9 @@
       "assets/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "electron/wallpaper.ps1"
+    ],
     "win": {
       "target": "nsis",
       "icon": "assets/munka.ico"
