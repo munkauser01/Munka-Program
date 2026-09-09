@@ -36,6 +36,8 @@ execFileSync(
     stage,
     "--win",
     "nsis",
+    "--publish",
+    "never",
   ],
   { cwd: root, stdio: "inherit" },
 );
