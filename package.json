@@ -1,6 +1,6 @@
 {
   "name": "munka-program",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Munka Windows school and daily-life planner",
   "main": "electron/main.cjs",
