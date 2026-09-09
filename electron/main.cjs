@@ -16,6 +16,8 @@ const { pathToFileURL } = require("node:url");
 const { execFile } = require("node:child_process");
 const root = path.join(__dirname, "..");
 let main,
+  pendingTask,
+  mainRendererReady = false,
   widget,
   tray,
   state,
@@ -130,12 +132,18 @@ function secure(w) {
   });
 }
 function showMain(id) {
+  if (typeof id === "string" && state.tasks.some((task) => task.id === id))
+    pendingTask = id;
   if (!main || main.isDestroyed()) createMain();
   main.show();
   main.focus();
-  if (id) main.webContents.send("change", state);
+  if (pendingTask && mainRendererReady) {
+    main.webContents.send("open-task", pendingTask);
+    pendingTask = undefined;
+  }
 }
 function createMain() {
+  mainRendererReady = false;
   main = new BrowserWindow(options());
   secure(main);
   main.webContents.on("render-process-gone", (_event, details) => {
@@ -351,6 +359,13 @@ app.whenReady().then(async () => {
   backup();
   setInterval(backup, 3600000).unref();
   handle("load", () => state);
+  handle("ready", () => {
+    mainRendererReady = true;
+    startupLog("main-renderer-ready");
+    const id = pendingTask;
+    pendingTask = undefined;
+    return id;
+  });
   handle("session", async (action, data) => {
     const file = path.join(app.getPath("userData"), "session.enc");
     if (action === "clear") {
@@ -537,7 +552,7 @@ app.whenReady().then(async () => {
         body,
         silent: !state.preferences.sound,
       });
-      n.on("click", () => showMain());
+      n.on("click", () => showMain(grouped ? undefined : due[0].id));
       n.show();
       for (const t of due) t.notifiedFor = t.reminder;
       saveInternal();
