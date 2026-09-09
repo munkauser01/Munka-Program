@@ -4,7 +4,7 @@ Windows planner for school and daily life. Your day, in sight.
 
 ## Development
 
-Requires Node.js 24 and pnpm. Run `pnpm install`, `pnpm start`, `pnpm test`, and `pnpm pack` to build the per-user Windows installer. If dependency scripts are disabled, run `node node_modules/electron/install.js` after installation. `pnpm preview` opens a browser development preview; Windows integrations require the Electron app.
+Requires Node.js 24 and pnpm. Run `pnpm install`, `pnpm start`, `pnpm test`, and `pnpm run pack` to build the per-user Windows installer. If dependency scripts are disabled, run `node node_modules/electron/install.js` after installation. `pnpm preview` opens a browser development preview; Windows integrations require the Electron app. Launch/build scripts reconstruct the original logo assets from the committed payload. Packaging stages only application files.
 
 ## Project records
 
@@ -13,6 +13,8 @@ Requires Node.js 24 and pnpm. Run `pnpm install`, `pnpm start`, `pnpm test`, and
 - [Architecture and decisions](outputs/Architecture.md)
 - [Acceptance checklist](outputs/Acceptance.md)
 - [Asset inventory](outputs/Asset-Inventory.md)
+- [Preview release notes and remaining work](outputs/Release-Notes.md)
+- [Design system](DESIGN.md)
 
 The supplied mobile deck provides branding. This product is a Windows desktop application. Real user data, credentials, local backups, and runtime logs are excluded from version control.
 
