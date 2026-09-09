@@ -39,7 +39,14 @@ const ps = (args) =>
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        path.join(__dirname, "wallpaper.ps1"),
+        app.isPackaged
+          ? path.join(
+              process.resourcesPath,
+              "app.asar.unpacked",
+              "electron",
+              "wallpaper.ps1",
+            )
+          : path.join(__dirname, "wallpaper.ps1"),
         ...args,
       ],
       { windowsHide: true },
@@ -370,12 +377,10 @@ app.whenReady().then(async () => {
       return;
     }
     if (action === "displays")
-      return screen
-        .getAllDisplays()
-        .map((d, i) => ({
-          id: String(d.id),
-          name: `Display ${i + 1} · ${d.size.width} × ${d.size.height}`,
-        }));
+      return screen.getAllDisplays().map((d, i) => ({
+        id: String(d.id),
+        name: `Display ${i + 1} · ${d.size.width} × ${d.size.height}`,
+      }));
     if (action === "wallpaper-enable") {
       const choice = await dialog.showMessageBox(main, {
         type: "question",
