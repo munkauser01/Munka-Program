@@ -1,6 +1,8 @@
 node_modules/
 work/
 outputs/release/
+outputs/release-current/
+outputs/*.zip
 .env*
 !.env.example
 *.log
