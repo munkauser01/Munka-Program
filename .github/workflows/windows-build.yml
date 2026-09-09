@@ -1,0 +1,33 @@
+name: Windows preview build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: |
+          npm install --global pnpm@10
+          pnpm install --frozen-lockfile --ignore-scripts
+          node node_modules/electron/install.js
+      - name: Test planner and sync service
+        run: node --test tests/*.test.mjs
+      - name: Build unsigned Windows preview
+        run: node scripts/build-windows.cjs
+      - name: Preserve installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Munka-Windows-preview
+          path: outputs/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
