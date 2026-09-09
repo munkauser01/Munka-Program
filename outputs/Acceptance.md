@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-September 8, 2026: all 12 Node tests pass. Native smoke checks pass in a disposable profile using diagnostic `--no-sandbox --in-process-gpu --disable-gpu` flags. Production keeps sandboxing; a normal clean Windows launch is still required. The current unsigned NSIS installer builds successfully.
+September 8, 2026 continuation: all 13 Node tests pass. Normal sandboxed runtime and native interaction tests pass on the clean GitHub Windows runner; isolated installation and single-instance checks also pass. Local restricted execution still fails before the renderer starts. The user's ordinary Windows desktop session remains a separate acceptance step. See Startup-Readiness.md for evidence.
 
 - [x] Recurring completion creates one successor and preserves history.
 - [x] Date-only deadlines have no implicit notification; invalid dates rejected.
@@ -14,7 +14,9 @@ September 8, 2026: all 12 Node tests pass. Native smoke checks pass in a disposa
 - [x] ICS UTC parsing and explicit unsupported-format errors.
 - [x] Dependencies remain separate from deadlines and calendar overlap is detected.
 - [x] Sync authentication, privacy isolation, viewer denial, invitation recipient, stale revision, and revocation.
-- [x] Renderer interaction smoke tests and native storage persistence under the diagnostic configuration above.
+- [x] Renderer interaction smoke tests and native storage persistence on the clean Windows runner without compatibility flags.
+- [x] Daily and weekly reminders retain local time across spring/fall daylight-saving transitions.
+- [x] Isolated Windows installation creates the expected executable and wallpaper helper; installed startup and single-instance behavior pass on the runner.
 - [x] Windows installer packaging (unsigned; installation acceptance remains open).
 - [x] Bounded Impeccable review: stable focus, modal containment, compact schedule visibility, read-only viewer details, and recaptured opaque task drawer.
 
