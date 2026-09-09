@@ -5,7 +5,7 @@
   "description": "Munka Windows school and daily-life planner",
   "main": "electron/main.cjs",
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/launch.cjs",
     "test": "node --test tests/*.test.mjs",
     "pack": "node scripts/build-windows.cjs",
     "preview": "node scripts/preview.cjs",

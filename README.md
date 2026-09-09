@@ -8,6 +8,8 @@ Requires Node.js 24 and pnpm. Run `pnpm install`, `pnpm start`, `pnpm test`, and
 
 ## Project records
 
+On Windows, `Launch Munka.cmd` starts the source copy with its folder as the working directory and preserves paths containing spaces. Node.js and the Electron runtime must already be installed. It keeps an error message visible when startup fails. This launcher does not disable Electron's sandbox. A running process alone does not establish that the planner loaded; see the startup readiness record.
+
 - [Approved product requirements](outputs/PRD.md)
 - [Roadmap and milestone evidence](outputs/Implementation-Status.md)
 - [Architecture and decisions](outputs/Architecture.md)
