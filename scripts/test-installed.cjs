@@ -58,7 +58,7 @@ function run(exe, args, timeout = 60000) {
         throw Error("Installed app exited before readiness.");
       if (
         fs.existsSync(logFile) &&
-        fs.readFileSync(logFile, "utf8").includes('"event":"main-loaded"')
+        fs.readFileSync(logFile, "utf8").includes('"event":"main-renderer-ready"')
       ) {
         loaded = true;
         break;
