@@ -1569,6 +1569,14 @@ try {
     state = next;
     if (!$(".drawer")) render();
   });
+  if (!isWidget && bridge.onOpenTask) {
+    bridge.onOpenTask((id) => {
+      if (state.tasks.some((task) => task.id === id)) editTask(id);
+    });
+    const pending = await bridge.ready();
+    if (pending && state.tasks.some((task) => task.id === pending))
+      editTask(pending);
+  }
 } catch (e) {
   $("#app").innerHTML = empty(
     "Your planner could not open",
