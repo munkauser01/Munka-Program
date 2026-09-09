@@ -28,6 +28,36 @@ let lastTick = Date.now(),
   wallpaperBusy = false;
 if (process.env.MUNKA_TEST_DATA)
   app.setPath("userData", process.env.MUNKA_TEST_DATA);
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+else
+  app.on("second-instance", () => {
+    if (app.isReady() && state) showMain();
+  });
+function startupLog(event, details = {}) {
+  // Runtime status only: never record task content, tokens, or launch arguments.
+  try {
+    const folder = app.getPath("userData");
+    fs.mkdirSync(folder, { recursive: true });
+    const file = path.join(folder, "startup.log");
+    if (fs.existsSync(file) && fs.statSync(file).size > 256 * 1024)
+      fs.renameSync(file, file + ".previous");
+    fs.appendFileSync(
+      file,
+      JSON.stringify({ at: new Date().toISOString(), event, ...details }) +
+        "\n",
+    );
+  } catch {
+    /* Logging must not prevent startup. */
+  }
+}
+app.on("child-process-gone", (_event, details) =>
+  startupLog("child-process-gone", {
+    type: details.type,
+    reason: details.reason,
+    exitCode: details.exitCode,
+  }),
+);
 app.setAppUserModelId("app.munka.planner");
 const ps = (args) =>
   new Promise((resolve, reject) =>
@@ -108,7 +138,20 @@ function showMain(id) {
 function createMain() {
   main = new BrowserWindow(options());
   secure(main);
-  main.loadFile(path.join(root, "src/index.html"));
+  main.webContents.on("render-process-gone", (_event, details) => {
+    startupLog("main-renderer-gone", {
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
+    quitting = true;
+    app.exit(1);
+  });
+  main.webContents.once("did-finish-load", () => startupLog("main-loaded"));
+  main.loadFile(path.join(root, "src/index.html")).catch(() => {
+    startupLog("main-load-failed");
+    quitting = true;
+    app.exit(1);
+  });
   main.on("close", (e) => {
     if (!quitting && state.preferences.background) {
       e.preventDefault();
@@ -273,6 +316,11 @@ async function updateWallpaper() {
   }
 }
 app.whenReady().then(async () => {
+  if (!primaryInstance) return;
+  startupLog("starting", {
+    electron: process.versions.electron,
+    packaged: app.isPackaged,
+  });
   domain = await import(pathToFileURL(path.join(root, "src/domain.mjs")).href);
   store = path.join(app.getPath("userData"), "planner.json");
   fs.mkdirSync(path.dirname(store), { recursive: true });
