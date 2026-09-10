@@ -471,7 +471,7 @@ function render() {
   document.body.classList.toggle("dark", dark);
   if (isWidget) {
     $("#app").innerHTML =
-      `<div class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></header><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>${
+      `<div class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><button class="quiet" data-action="widget-position" aria-label="Choose widget display and position">Position</button><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></header><p class="muted small widget-position-help">Drag the header to move · Resize from an edge</p><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>${
         activeTasks()
           .filter((t) => t.status !== "Done")
           .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
@@ -1136,6 +1136,8 @@ async function action(a) {
         return;
       case "open-main":
         return await bridge.desktop("open");
+      case "widget-position":
+        return await bridge.desktop("widget-position");
       case "accept-invite":
         return acceptInvite();
       case "account":
@@ -1584,3 +1586,4 @@ try {
     null,
   );
 }
+

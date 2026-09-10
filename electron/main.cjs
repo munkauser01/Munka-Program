@@ -15,6 +15,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { execFile } = require("node:child_process");
 const root = path.join(__dirname, "..");
+const { widgetBounds } = require('./widget-bounds.cjs');
 let main,
   pendingTask,
   mainRendererReady = false,
@@ -168,23 +169,7 @@ function createMain() {
   });
 }
 function safeBounds(b) {
-  const displays = screen.getAllDisplays();
-  return b &&
-    displays.some(
-      (d) =>
-        b.x + 80 > d.workArea.x &&
-        b.x < d.workArea.x + d.workArea.width &&
-        b.y + 40 > d.workArea.y &&
-        b.y < d.workArea.y + d.workArea.height,
-    )
-    ? b
-    : {
-        ...screen.getPrimaryDisplay().workArea,
-        x: screen.getPrimaryDisplay().workArea.x + 30,
-        y: screen.getPrimaryDisplay().workArea.y + 30,
-        width: 360,
-        height: 460,
-      };
+  return widgetBounds(b, screen.getAllDisplays(), screen.getPrimaryDisplay());
 }
 function syncWidget() {
   if (!state.preferences.widget) {
@@ -200,8 +185,9 @@ function syncWidget() {
         ...safeBounds(state.preferences.widgetBounds),
         minWidth: 290,
         minHeight: 260,
-        width: state.preferences.widgetBounds?.width || 360,
-        height: state.preferences.widgetBounds?.height || 460,
+        title: 'Munka widget',
+        movable: true,
+        resizable: true,
         alwaysOnTop: !!state.preferences.alwaysOnTop,
         skipTaskbar: true,
       }),
@@ -435,6 +421,25 @@ app.whenReady().then(async () => {
     return { name: path.basename(file), text: fs.readFileSync(file, "utf8") };
   });
   handle("desktop", async (action, value) => {
+    if (action === 'widget-position' && widget) {
+      Menu.buildFromTemplate(screen.getAllDisplays().map((display, index) => ({
+        label: `Display ${index + 1}`,
+        submenu: ['Top left', 'Top right', 'Bottom left', 'Bottom right'].map(label => ({
+          label,
+          click: () => {
+            if (!widget || widget.isDestroyed()) return;
+            const a = display.workArea;
+            const b = widgetBounds({ ...widget.getBounds(), x: a.x, y: a.y }, [display], display);
+            b.x = label.endsWith('right') ? a.x + a.width - b.width : a.x;
+            b.y = label.startsWith('Bottom') ? a.y + a.height - b.height : a.y;
+            widget.setBounds(b);
+            state.preferences.widgetBounds = b;
+            saveInternal();
+          },
+        })),
+      }))).popup({ window: widget });
+      return;
+    }
     if (action === "open") {
       showMain(value);
       return;
@@ -521,6 +526,9 @@ app.whenReady().then(async () => {
   );
   tray.on("double-click", () => showMain());
   screen.on("display-removed", () => {
+    if (widget) widget.setBounds(safeBounds(widget.getBounds()));
+  });
+  screen.on('display-metrics-changed', () => {
     if (widget) widget.setBounds(safeBounds(widget.getBounds()));
   });
   setInterval(() => {

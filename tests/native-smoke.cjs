@@ -146,6 +146,18 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length < 2)
       throw Error("Widget did not open");
     const widget = BrowserWindow.getAllWindows().find((x) => x !== w);
+    const dragRegions = await widget.webContents.executeJavaScript(`({
+      header: getComputedStyle(document.querySelector('.widget-layout header')).getPropertyValue('-webkit-app-region'),
+      button: getComputedStyle(document.querySelector('[data-action="widget-position"]')).getPropertyValue('-webkit-app-region')
+    })`);
+    if (dragRegions.header !== 'drag' || dragRegions.button !== 'no-drag')
+      throw Error('Widget drag region blocks controls or is missing');
+    const beforeMove = widget.getBounds();
+    widget.setPosition(beforeMove.x + 10, beforeMove.y + 10);
+    await delay(750);
+    const savedBounds = await w.webContents.executeJavaScript(`window.munka.load().then(s => s.preferences.widgetBounds)`);
+    if (savedBounds.x !== widget.getBounds().x || savedBounds.y !== widget.getBounds().y)
+      throw Error('Widget position was not persisted');
     if (
       !(await widget.webContents.executeJavaScript(
         `document.body.innerText.includes('Your day, in sight.')`,

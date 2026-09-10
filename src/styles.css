@@ -785,10 +785,18 @@ th {
   height: 30px;
 }
 .widget-layout header {
+  -webkit-app-region: drag;
+  user-select: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
+}
+.widget-layout button {
+  -webkit-app-region: no-drag;
+}
+.widget-position-help {
+  margin: -12px 0 18px;
 }
 .widget-layout h1 {
   font-size: 22px;
