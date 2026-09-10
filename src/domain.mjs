@@ -25,6 +25,8 @@ export function initialState() {
       theme: "system",
       dev: false,
       widget: false,
+      widgetDesign: "glass",
+      widgetProjects: true,
       wallpaper: false,
       alwaysOnTop: false,
       privacy: false,

@@ -145,7 +145,9 @@ app.whenReady().then(async () => {
     await delay(600);
     if (BrowserWindow.getAllWindows().length < 2)
       throw Error("Widget did not open");
-    const widget = BrowserWindow.getAllWindows().find((x) => x !== w);
+    const widget = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().endsWith('widget=1'));
+    const projectsWidget = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().endsWith('widget=projects'));
+    if (!projectsWidget) throw Error('Separate projects kiosk did not open');
     const dragRegions = await widget.webContents.executeJavaScript(`({
       header: getComputedStyle(document.querySelector('.widget-layout header')).getPropertyValue('-webkit-app-region'),
       button: getComputedStyle(document.querySelector('[data-action="widget-position"]')).getPropertyValue('-webkit-app-region')
@@ -180,6 +182,10 @@ app.whenReady().then(async () => {
     await w.webContents.executeJavaScript(
       `document.querySelector('#close-drawer').click()`,
     );
+    const completedWidgetId = await widget.webContents.executeJavaScript(`(() => { const b = document.querySelector('[data-complete]'); const id = b.dataset.complete; b.click(); return id; })()`);
+    await delay(400);
+    const retained = await widget.webContents.executeJavaScript(`document.querySelector('[data-complete="${completedWidgetId}"]')?.classList.contains('done')`);
+    if (!retained) throw Error('Completed task disappeared from widget');
     await w.webContents.executeJavaScript(
       `(async()=>{const s=await window.munka.load();s.preferences.widget=false;await window.munka.save(s,s.revision)})()`,
     );

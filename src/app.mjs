@@ -48,6 +48,7 @@ const paths = {
 const icon = (n) =>
   `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="${paths[n] || paths.inbox}"/></svg>`;
 let syncBusy = false,
+  widgetAppearanceOpen = false,
   drawerOpener = null;
 function focusIdentity(el = document.activeElement) {
   if (!el || el === document.body) return null;
@@ -106,6 +107,8 @@ let state,
   displays = [],
   syncClient;
 const isWidget = new URLSearchParams(location.search).has("widget");
+const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
+import { widgetModel } from './widget-model.mjs';
 const bridge = window.munka || {
   load: async () => {
     try {
@@ -230,7 +233,7 @@ function prettyDate(s) {
 function row(t) {
   const course = state.courses.find((c) => c.id === t.course),
     project = state.projects.find((p) => p.id === t.project);
-  return `<article class="task-row ${t.status === "Done" ? "completed" : ""}">${state.preferences.dev && !isWidget ? `<input type="checkbox" aria-label="Select ${esc(t.title)}" data-bulk="${t.id}" ${bulk.has(t.id) ? "checked" : ""}>` : ""}<button class="check ${t.status === "Done" ? "done" : ""}" data-complete="${t.id}" aria-label="${t.status === "Done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "Done" ? icon("check") : ""}</button><button class="task-open" data-task="${t.id}"><span class="task-title">${esc(isWidget && state.preferences.privacy ? "Upcoming task" : t.title)}</span><span class="task-meta">${!isWidget || !state.preferences.privacy ? `<span>${esc(course?.name || project?.name || "Personal")}</span>` : ""}${!["Task", "Personal"].includes(t.kind) ? `<span>${esc(t.kind)}</span>` : ""}${t.priority === "High" ? '<span class="badge urgent">High priority</span>' : ""}${t.status === "In progress" ? '<span class="badge">In progress</span>' : ""}${blocked(state, t) ? '<span class="badge">Blocked</span>' : ""}${t.subtasks.length ? `<span>${t.subtasks.filter((x) => x.done).length}/${t.subtasks.length} subtasks</span>` : ""}</span></button><span class="task-due ${t.date && t.date < dateKey() && t.status !== "Done" ? "overdue" : ""}">${esc(prettyDate(t.date))}${t.time ? `<br>${esc(t.time)}` : ""}</span>${isWidget ? `<button class="quiet" data-snooze="${t.id}" aria-label="Snooze ${esc(t.title)} for 15 minutes">${icon("clock")}</button>` : ""}</article>`;
+  return `<article class="task-row ${t.status === "Done" ? "completed" : ""}">${state.preferences.dev && !isWidget ? `<input type="checkbox" aria-label="Select ${esc(t.title)}" data-bulk="${t.id}" ${bulk.has(t.id) ? "checked" : ""}>` : ""}<button class="check ${t.status === "Done" ? "done" : ""}" data-complete="${t.id}" aria-label="${t.status === "Done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "Done" ? icon("check") : ""}</button><button class="task-open" data-task="${t.id}"><span class="task-title">${esc(isWidget && state.preferences.privacy ? "Upcoming task" : t.title)}</span><span class="task-meta">${!isWidget || !state.preferences.privacy ? `<span>${esc(course?.name || project?.name || "Personal")}</span>` : ""}${!["Task", "Personal"].includes(t.kind) ? `<span>${esc(t.kind)}</span>` : ""}${t.priority === "High" ? '<span class="badge urgent">High priority</span>' : ""}${t.status === "In progress" ? '<span class="badge">In progress</span>' : ""}${blocked(state, t) ? '<span class="badge">Blocked</span>' : ""}${t.subtasks.length ? `<span>${t.subtasks.filter((x) => x.done).length}/${t.subtasks.length} subtasks</span>` : ""}</span></button><span class="task-due ${t.date && t.date < dateKey() && t.status !== "Done" ? "overdue" : ""}">${isWidget && t.status === "Done" ? "Done" : esc(prettyDate(t.date))}${t.time ? `<br>${esc(t.time)}` : ""}</span>${isWidget && t.status !== "Done" ? `<button class="quiet" data-snooze="${t.id}" aria-label="Snooze ${esc(t.title)} for 15 minutes">${icon("clock")}</button>` : ""}</article>`;
 }
 function empty(title, text, action = "new-task", label = "Add a task") {
   return `<div class="empty">${icon("inbox")}<h2>${title}</h2><p>${text}</p>${action ? `<button class="primary" data-action="${action}">${icon("plus")}${label}</button>` : ""}</div>`;
@@ -434,13 +437,13 @@ function reviewView() {
   );
 }
 function toggle(key, label, desc) {
-  return `<div class="setting"><div><h3>${label}</h3><p>${desc}</p></div><button class="switch" role="switch" aria-label="${label}" aria-checked="${!!state.preferences[key]}" data-toggle="${key}"></button></div>`;
+  return `<div class="setting"><div><h3>${label}</h3><p>${desc}</p></div><button class="switch" role="switch" aria-label="${label}" aria-checked="${key === "widgetProjects" ? state.preferences[key] !== false : !!state.preferences[key]}" data-toggle="${key}"></button></div>`;
 }
 function settingsView() {
   const p = state.preferences;
   return (
     heading("Settings", "Make Munka feel at home on your desktop.", null) +
-    `<div class="settings"><h2>Appearance</h2><div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${["system", "light", "dark"].map((x) => `<option ${p.theme === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>${toggle("dev", "Dev Mode", "Show advanced views, dependencies, bulk actions, and automation tools.")}<h2 class="section-block">Desktop reminders</h2>${toggle("widget", "Desktop widget", "A small, interactive task list alongside your work.")}${toggle("alwaysOnTop", "Keep widget on top", "Keep your widget above other windows.")}${toggle("wallpaper", "Wallpaper reminders", "Place a task summary on your chosen desktop background.")}<div class="setting"><div><h3>Wallpaper placement</h3><p>The widget and wallpaper can run independently.</p></div><select id="wallpaper-position" aria-label="Wallpaper placement"><option value="right" ${p.wallpaperPosition === "right" ? "selected" : ""}>Right</option><option value="left" ${p.wallpaperPosition === "left" ? "selected" : ""}>Left</option></select></div><div class="setting"><h3>Wallpaper display</h3><select id="wallpaper-display" aria-label="Wallpaper display">${displays.length ? displays.map((d) => `<option value="${d.id}" ${p.wallpaperDisplay === d.id ? "selected" : ""}>${esc(d.name)}</option>`).join("") : "<option>Primary display</option>"}</select></div><div class="setting"><h3>Visible reminders</h3><select id="wallpaper-count" aria-label="Visible reminders">${[3, 5, 8].map((n) => `<option ${Number(p.wallpaperCount) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>${p.wallpaperError ? `<p class="inline-error">${esc(p.wallpaperError)}</p>` : ""}${toggle("privacy", "Hide task details on desktop", "Display “Upcoming task” instead of private task names.")}${toggle("background", "Keep running in the tray", "Closing the window keeps reminders active. Quit from the tray to stop them.")}<h2 class="section-block">Notifications</h2><p class="muted small">Windows notification settings and Focus settings may silence alerts. Munka cannot override them. Use the test below to check delivery.</p><button data-action="test-notification">Send test notification</button>${toggle("sound", "Reminder sounds", "Play a sound when Windows delivers a reminder.")}${toggle("quietEnabled", "Quiet hours", "Hold reminders and deliver a catch-up after quiet hours.")}<div class="form-grid spaced"><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div><h2 class="section-block">Automation</h2>${toggle("automationPaused", "Pause all automations", "Rules remain saved, including when Dev Mode is off.")}<h2 class="section-block">Your data</h2><p class="muted small">Your planner is stored on this computer. The Windows app keeps 14 rotating local backups. Import always shows a preview before changing your planner.</p><div class="actions"><button data-action="import">Import or restore</button><button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div><h2 class="section-block">Account & synchronization</h2><p class="muted small">Optional. Connect to a Munka sync service to use multiple PCs and shared projects. Local planning does not require an account.</p><p id="sync-status" role="status">${esc(state.sync.message || "Local only · No sync service connected")}</p><div class="actions"><button data-action="account">${state.sync.account ? "Manage account" : "Connect account"}</button>${state.sync.account ? '<button data-action="sync">Sync now</button><button data-action="accept-invite">Accept invitation</button>' : ""}</div></div>`
+    `<div class="settings"><h2>Appearance</h2><div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${["system", "light", "dark"].map((x) => `<option ${p.theme === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>${toggle("dev", "Dev Mode", "Show advanced views, dependencies, bulk actions, and automation tools.")}<h2 class="section-block">Desktop reminders</h2>${toggle("widget", "Desktop widget", "A small, interactive task list alongside your work.")}${widgetAppearance()}${toggle("alwaysOnTop", "Keep widget on top", "Keep your widget above other windows.")}${toggle("wallpaper", "Wallpaper reminders", "Place a task summary on your chosen desktop background.")}<div class="setting"><div><h3>Wallpaper placement</h3><p>The widget and wallpaper can run independently.</p></div><select id="wallpaper-position" aria-label="Wallpaper placement"><option value="right" ${p.wallpaperPosition === "right" ? "selected" : ""}>Right</option><option value="left" ${p.wallpaperPosition === "left" ? "selected" : ""}>Left</option></select></div><div class="setting"><h3>Wallpaper display</h3><select id="wallpaper-display" aria-label="Wallpaper display">${displays.length ? displays.map((d) => `<option value="${d.id}" ${p.wallpaperDisplay === d.id ? "selected" : ""}>${esc(d.name)}</option>`).join("") : "<option>Primary display</option>"}</select></div><div class="setting"><h3>Visible reminders</h3><select id="wallpaper-count" aria-label="Visible reminders">${[3, 5, 8].map((n) => `<option ${Number(p.wallpaperCount) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>${p.wallpaperError ? `<p class="inline-error">${esc(p.wallpaperError)}</p>` : ""}${toggle("privacy", "Hide task details on desktop", "Display “Upcoming task” instead of private task names.")}${toggle("background", "Keep running in the tray", "Closing the window keeps reminders active. Quit from the tray to stop them.")}<h2 class="section-block">Notifications</h2><p class="muted small">Windows notification settings and Focus settings may silence alerts. Munka cannot override them. Use the test below to check delivery.</p><button data-action="test-notification">Send test notification</button>${toggle("sound", "Reminder sounds", "Play a sound when Windows delivers a reminder.")}${toggle("quietEnabled", "Quiet hours", "Hold reminders and deliver a catch-up after quiet hours.")}<div class="form-grid spaced"><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div><h2 class="section-block">Automation</h2>${toggle("automationPaused", "Pause all automations", "Rules remain saved, including when Dev Mode is off.")}<h2 class="section-block">Your data</h2><p class="muted small">Your planner is stored on this computer. The Windows app keeps 14 rotating local backups. Import always shows a preview before changing your planner.</p><div class="actions"><button data-action="import">Import or restore</button><button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div><h2 class="section-block">Account & synchronization</h2><p class="muted small">Optional. Connect to a Munka sync service to use multiple PCs and shared projects. Local planning does not require an account.</p><p id="sync-status" role="status">${esc(state.sync.message || "Local only · No sync service connected")}</p><div class="actions"><button data-action="account">${state.sync.account ? "Manage account" : "Connect account"}</button>${state.sync.account ? '<button data-action="sync">Sync now</button><button data-action="accept-invite">Accept invitation</button>' : ""}</div></div>`
   );
 }
 function devView() {
@@ -461,6 +464,13 @@ function devView() {
       .join("")}</tbody></table></div>`
   );
 }
+function widgetAppearance() {
+  const design = state.preferences.widgetDesign || 'glass';
+  return `<details class="widget-customize" ${widgetAppearanceOpen ? 'open' : ''}><summary>Appearance</summary><div class="widget-customize-body"><label for="widget-design">Widget design</label><select id="widget-design">${[['glass','Glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select>${toggle('widgetProjects', 'Show projects', 'Keep project work in its own kiosk.')}</div></details>`;
+}
+function projectKiosk(projects) {
+  return `<section class="project-kiosk" aria-label="Current projects"><div class="widget-section-title"><span class="widget-eyebrow">PROJECT WORK</span><span class="widget-count">${projects.length} active</span></div><h1>In progress</h1><p class="muted small">A little space for the bigger things.</p>${projects.map(p => `<section class="widget-project"><div class="project-heading"><h2>${esc(state.preferences.privacy ? 'Current project' : p.name)}</h2><span class="small muted">${p.done}/${p.tasks.length} done</span></div><progress aria-label="Project completion" max="${p.tasks.length || 1}" value="${p.done}"></progress>${p.tasks.map(row).join('') || '<p class="small muted">No tasks yet. Add one in Projects.</p>'}</section>`).join('') || '<p class="widget-empty">No active projects yet. Create one in your planner.</p>'}</section>`;
+}
 function render() {
   if (!state) return;
   const focusBefore = focusIdentity();
@@ -470,16 +480,15 @@ function render() {
       matchMedia("(prefers-color-scheme:dark)").matches);
   document.body.classList.toggle("dark", dark);
   if (isWidget) {
+    const model = widgetModel(state);
+    const design = ['glass', 'sage', 'plain'].includes(state.preferences.widgetDesign) ? state.preferences.widgetDesign : 'glass';
+    document.body.classList.add('widget-page');
+    document.documentElement.classList.add('widget-root');
+    document.body.classList.toggle('widget-browser', !window.munka);
+    document.body.dataset.widgetDesign = design;
+    const showProjects = state.preferences.widgetProjects !== false;
     $("#app").innerHTML =
-      `<div class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><button class="quiet" data-action="widget-position" aria-label="Choose widget display and position">Position</button><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></header><p class="muted small widget-position-help">Drag the header to move · Resize from an edge</p><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>${
-        activeTasks()
-          .filter((t) => t.status !== "Done")
-          .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
-          .slice(0, 8)
-          .map(row)
-          .join("") ||
-        '<p class="muted">All clear. Add a task in your planner.</p>'
-      }</div>`;
+      `<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="widget-position" aria-label="Choose widget display and position">Position</button><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></div></header><p class="muted small widget-position-help">Drag the header to move · Resize from an edge</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><span class="widget-eyebrow">DAILY TASKS & REMINDERS</span><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || '<p class="widget-empty">A clear day. Add a task in your planner.</p>'}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
     bind();
     restoreFocus(focusBefore);
     return;
@@ -1137,7 +1146,7 @@ async function action(a) {
       case "open-main":
         return await bridge.desktop("open");
       case "widget-position":
-        return await bridge.desktop("widget-position");
+        return await bridge.desktop("widget-position", isProjectsWidget ? 'projects' : 'daily');
       case "accept-invite":
         return acceptInvite();
       case "account":
@@ -1150,6 +1159,8 @@ async function action(a) {
   }
 }
 function bind() {
+  const customize = document.querySelector('.widget-customize');
+  if (customize) customize.ontoggle = () => { widgetAppearanceOpen = customize.open; };
   $$("[data-view]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1280,7 +1291,7 @@ function bind() {
           }
           if (k === "widget" && !window.munka)
             throw Error("Desktop widgets are available in the Windows app.");
-          state.preferences[k] = !state.preferences[k];
+          state.preferences[k] = k === 'widgetProjects' ? state.preferences[k] === false : !state.preferences[k];
           if (k === "dev" && !state.preferences.dev) {
             if (view === "dev") view = "settings";
             if (["high", "blocked"].includes(filter)) filter = "open";
@@ -1336,6 +1347,7 @@ function bind() {
     };
   for (const [id, key] of [
     ["theme", "theme"],
+    ["widget-design", "widgetDesign"],
     ["wallpaper-position", "wallpaperPosition"],
     ["wallpaper-display", "wallpaperDisplay"],
     ["wallpaper-count", "wallpaperCount"],
@@ -1586,4 +1598,6 @@ try {
     null,
   );
 }
+
+
 

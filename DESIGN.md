@@ -229,3 +229,6 @@ A panel-colored drawer attaches to the right viewport edge (440px, capped at vie
 - **Don't** treat the wallpaper's fixed light colors as dark-theme tokens.
 - **Don't** infer a decorative display font or a marketing typography system from the Windows interface.
 
+## Widget materials — approved September 9, 2026
+
+Widget surfaces use rounded 28px frosted bubbles, sage-tinted translucency, restrained shadows, and the original monkey mark. Glass is the default; Sage and Plain are user-selectable alternatives. Green checks plus Done text communicate completion without relying on color alone. Daily tasks and project work occupy distinct kiosks, with a muted violet accent identifying project progress. Native acrylic is platform-dependent; retain readable fallback surfaces.

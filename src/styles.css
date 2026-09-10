@@ -816,6 +816,73 @@ th {
 .widget-layout .capture {
   display: none;
 }
+.widget-root { background: transparent; }
+.widget-page {
+  background: transparent;
+  --muted: #4f6159;
+}
+.widget-page #app { padding: 12px; }
+.widget-page .widget-layout {
+  padding: 22px;
+  border-radius: 28px;
+  background: rgba(246, 250, 246, .88);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), 0 10px 28px rgba(30,55,43,.12);
+  backdrop-filter: blur(28px) saturate(130%);
+}
+.widget-browser {
+  background: linear-gradient(135deg, #d7e5df, #edf1e6 50%, #c7d9d6);
+  min-height: 100vh;
+}
+.widget-page .widget-layout header { gap: 8px; margin-bottom: 24px; }
+.widget-page .brand { font-size: 22px; flex-shrink: 0; }
+.widget-header-actions { display: flex; align-items: center; gap: 2px; }
+.widget-header-actions button { padding: 7px; font-size: 12px; flex-shrink: 0; }
+.widget-header-actions svg, .widget-layout .task-row button.quiet svg { width: 17px; height: 17px; flex-shrink: 0; }
+.widget-page .widget-position-help { font-size: 10px; line-height: 1.6; }
+.widget-section-title, .project-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.widget-eyebrow { font-size: 10px; font-weight: 650; letter-spacing: .08em; color: #526b60; }
+.widget-count { font-size: 11px; white-space: nowrap; color: var(--muted); }
+.widget-page h1 { font-size: 23px; margin: 12px 0 8px; letter-spacing: -.025em; }
+.widget-page .task-row { gap: 10px; padding: 16px 0; border-color: rgba(68,100,78,.14); }
+.widget-page .task-due { flex-shrink: 0; font-size: 11px; }
+.widget-page .task-row button.quiet { flex-shrink: 0; width: 30px; padding: 5px; }
+.widget-page .task-row .check { width: 24px; height: 24px; }
+.widget-page .task-row .check.done { background: #217245; border-color: #217245; color: white; }
+.widget-page .task-row.completed .task-title { text-decoration: none; color: #345f44; }
+.widget-page .task-row.completed .task-due { color: #217245; font-weight: 650; }
+.widget-page .task-row.completed .check svg { width: 16px; height: 16px; }
+.widget-customize { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+.widget-customize summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.widget-customize-body { padding-top: 15px; }
+.widget-customize-body label { display: block; margin-bottom: 7px; font-size: 12px; }
+.widget-customize .setting { gap: 12px; }
+.widget-customize .setting h3 { font-size: 13px; }
+.widget-customize .setting p { font-size: 11px; }
+.widget-project-companion { margin-top: 18px; }
+.project-kiosk .widget-eyebrow { color: #5c5680; }
+.widget-project { margin-top: 22px; }
+.project-heading h2 { font-size: 16px; margin: 0 0 10px; overflow-wrap: anywhere; }
+.project-heading .small { white-space: nowrap; }
+.widget-project progress { width: 100%; height: 5px; accent-color: #71628c; display: block; }
+.widget-empty { font-size: 13px; line-height: 1.6; padding: 14px 0; color: var(--muted); }
+.widget-page[data-widget-design="sage"] .widget-layout { background: #e7eedf; backdrop-filter: none; border-radius: 20px; }
+.widget-page[data-widget-design="plain"] .widget-layout { background: #fff; backdrop-filter: none; border-radius: 12px; box-shadow: none; }
+.widget-page.dark { --muted: #bacac2; }
+.widget-page.dark .widget-layout { background: rgba(32,48,41,.94); }
+.widget-page.dark[data-widget-design="sage"] .widget-layout { background: #293b2d; }
+.widget-page.dark[data-widget-design="plain"] .widget-layout { background: #243029; }
+.widget-page.dark .widget-eyebrow { color: #c3d6ba; }
+.widget-page.dark .project-kiosk .widget-eyebrow { color: #d4c7e9; }
+.widget-page.dark .task-row.completed .task-title, .widget-page.dark .task-row.completed .task-due { color: #a0dbad; }
+@media (max-width: 330px) {
+  .widget-page #app { padding: 6px; }
+  .widget-page .widget-layout { padding: 14px; }
+  .widget-page .task-row { gap: 6px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .widget-page .widget-layout { background: #f6faf6; backdrop-filter: none; }
+  .widget-page.dark .widget-layout { background: #203029; }
+}
 .command-results {
   display: grid;
   gap: 7px;

@@ -20,6 +20,7 @@ let main,
   pendingTask,
   mainRendererReady = false,
   widget,
+  projectsWidget,
   tray,
   state,
   domain,
@@ -172,6 +173,7 @@ function safeBounds(b) {
   return widgetBounds(b, screen.getAllDisplays(), screen.getPrimaryDisplay());
 }
 function syncWidget() {
+  syncProjectsWidget();
   if (!state.preferences.widget) {
     if (widget) {
       widget.destroy();
@@ -197,8 +199,9 @@ function syncWidget() {
       query: { widget: "1" },
     });
     widget.on("close", () => {
+      state.preferences.widgetBounds = widget.getBounds();
       widget = null;
-      state.preferences.widget = false;
+      if (!quitting) state.preferences.widget = false;
       saveInternal();
     });
     let timer;
@@ -215,10 +218,53 @@ function syncWidget() {
     widget.on("resized", remember);
   }
   widget.setAlwaysOnTop(!!state.preferences.alwaysOnTop);
+  widgetMaterial(widget);
+}
+function widgetMaterial(win) {
+  const glass = !state.preferences.widgetDesign || state.preferences.widgetDesign === 'glass';
+  try {
+    win.setBackgroundMaterial(glass ? 'acrylic' : 'none');
+    win.setBackgroundColor(glass ? '#00000000' : '#f8f8f3');
+  } catch {
+    win.setBackgroundColor('#f8f8f3');
+  }
+}
+function syncProjectsWidget() {
+  if (!state.preferences.widget || state.preferences.widgetProjects === false) {
+    if (projectsWidget) { projectsWidget.destroy(); projectsWidget = null; }
+    return;
+  }
+  if (!projectsWidget) {
+    const daily = safeBounds(state.preferences.widgetBounds);
+    const bounds = safeBounds(state.preferences.projectsWidgetBounds || { ...daily, x: daily.x + daily.width + 20 });
+    const win = new BrowserWindow(options({ ...bounds, minWidth: 290, minHeight: 260, title: 'Munka projects', skipTaskbar: true, movable: true, resizable: true }));
+    projectsWidget = win;
+    secure(win);
+    win.loadFile(path.join(root, 'src/index.html'), { query: { widget: 'projects' } });
+    let timer;
+    const remember = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!win.isDestroyed()) { state.preferences.projectsWidgetBounds = win.getBounds(); saveInternal(); }
+      }, 500);
+    };
+    win.on('moved', remember);
+    win.on('resized', remember);
+    win.on('close', () => {
+      state.preferences.projectsWidgetBounds = win.getBounds();
+      if (!quitting) state.preferences.widgetProjects = false;
+      projectsWidget = null;
+      clearTimeout(timer);
+      saveInternal();
+    });
+    win.on('closed', () => clearTimeout(timer));
+  }
+  projectsWidget.setAlwaysOnTop(!!state.preferences.alwaysOnTop);
+  widgetMaterial(projectsWidget);
 }
 function senderAllowed(e) {
   return (
-    [main, widget].some(
+    [main, widget, projectsWidget].some(
       (w) => w && !w.isDestroyed() && w.webContents === e.sender,
     ) && e.senderFrame === e.sender.mainFrame
   );
@@ -421,23 +467,24 @@ app.whenReady().then(async () => {
     return { name: path.basename(file), text: fs.readFileSync(file, "utf8") };
   });
   handle("desktop", async (action, value) => {
-    if (action === 'widget-position' && widget) {
+    const placementWindow = value === 'projects' ? projectsWidget : widget;
+    if (action === 'widget-position' && placementWindow) {
       Menu.buildFromTemplate(screen.getAllDisplays().map((display, index) => ({
         label: `Display ${index + 1}`,
         submenu: ['Top left', 'Top right', 'Bottom left', 'Bottom right'].map(label => ({
           label,
           click: () => {
-            if (!widget || widget.isDestroyed()) return;
+            if (!placementWindow || placementWindow.isDestroyed()) return;
             const a = display.workArea;
-            const b = widgetBounds({ ...widget.getBounds(), x: a.x, y: a.y }, [display], display);
+            const b = widgetBounds({ ...placementWindow.getBounds(), x: a.x, y: a.y }, [display], display);
             b.x = label.endsWith('right') ? a.x + a.width - b.width : a.x;
             b.y = label.startsWith('Bottom') ? a.y + a.height - b.height : a.y;
-            widget.setBounds(b);
-            state.preferences.widgetBounds = b;
+            placementWindow.setBounds(b);
+            state.preferences[value === 'projects' ? 'projectsWidgetBounds' : 'widgetBounds'] = b;
             saveInternal();
           },
         })),
-      }))).popup({ window: widget });
+      }))).popup({ window: placementWindow });
       return;
     }
     if (action === "open") {
@@ -527,9 +574,11 @@ app.whenReady().then(async () => {
   tray.on("double-click", () => showMain());
   screen.on("display-removed", () => {
     if (widget) widget.setBounds(safeBounds(widget.getBounds()));
+    if (projectsWidget) projectsWidget.setBounds(safeBounds(projectsWidget.getBounds()));
   });
   screen.on('display-metrics-changed', () => {
     if (widget) widget.setBounds(safeBounds(widget.getBounds()));
+    if (projectsWidget) projectsWidget.setBounds(safeBounds(projectsWidget.getBounds()));
   });
   setInterval(() => {
     const now = new Date();
@@ -576,3 +625,4 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   quitting = true;
 });
+
