@@ -16,6 +16,8 @@ const { pathToFileURL } = require("node:url");
 const { execFile } = require("node:child_process");
 const root = path.join(__dirname, "..");
 const { widgetBounds } = require('./widget-bounds.cjs');
+const { wallpaperContent, matchMonitor } = require('./wallpaper-model.cjs');
+let wallpaperKey = '', wallpaperGeneration = 0;
 let main,
   pendingTask,
   mainRendererReady = false,
@@ -275,85 +277,53 @@ function handle(name, fn) {
     return fn(...args);
   });
 }
-async function updateWallpaper() {
-  if (
-    !state.preferences.wallpaper ||
-    wallpaperBusy ||
-    !state.preferences.wallpaperBackground
-  )
-    return;
-  wallpaperBusy = true;
+function wallpaperDisplay() {
+  const id = state.preferences.wallpaperDisplay;
+  const display = id ? screen.getAllDisplays().find(d => String(d.id) === id) : screen.getPrimaryDisplay();
+  if (!display) throw Error('The selected wallpaper display is disconnected. Choose a connected display.');
+  return display;
+}
+function wallpaperData() {
+  return wallpaperContent(state, new Date().toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' }));
+}
+async function renderWallpaper(file, display, content) {
+  if (fs.statSync(file).size > 30 * 1024 * 1024) throw Error('Choose a background smaller than 30 MB.');
+  const w = new BrowserWindow({ ...display.bounds, useContentSize:true, frame:false, show:false,
+    webPreferences:{offscreen:true, contextIsolation:true, nodeIntegration:false, sandbox:true} });
   try {
-    const display =
-      screen
-        .getAllDisplays()
-        .find((d) => String(d.id) === state.preferences.wallpaperDisplay) ||
-      screen.getPrimaryDisplay();
-    const w = new BrowserWindow({
-      width: display.size.width,
-      height: display.size.height,
-      show: false,
-      webPreferences: {
-        offscreen: true,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-    try {
-      await w.loadFile(path.join(root, "src/wallpaper.html"));
-      const data = {
-        background: fs
-          .readFileSync(state.preferences.wallpaperBackground)
-          .toString("base64"),
-        mime:
-          path.extname(state.preferences.wallpaperBackground).toLowerCase() ===
-          ".png"
-            ? "image/png"
-            : "image/jpeg",
-        tasks: state.tasks
-          .filter((t) => t.status !== "Done")
-          .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
-          .slice(0, state.preferences.wallpaperCount || 5)
-          .map((t) => ({
-            title: state.preferences.privacy ? "Upcoming task" : t.title,
-            date: t.date,
-          })),
-        position: state.preferences.wallpaperPosition,
-      };
-      await w.webContents.executeJavaScript(
-        `window.paint(${JSON.stringify(data)})`,
-      );
-      const img = await w.webContents.capturePage();
-      const out = path.join(app.getPath("userData"), "munka-wallpaper.png");
-      fs.writeFileSync(out, img.toPNG());
-      await ps([
-        "-Action",
-        "set",
-        "-ImagePath",
-        out,
-        "-MonitorIndex",
-        String(
-          Math.max(
-            0,
-            screen.getAllDisplays().findIndex((d) => d.id === display.id),
-          ),
-        ),
-      ]);
-    } finally {
-      w.destroy();
-    }
+    await w.loadFile(path.join(root, 'src/wallpaper.html'));
+    const data = { ...content, background:fs.readFileSync(file).toString('base64'),
+      mime:path.extname(file).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg',
+      logo:fs.readFileSync(path.join(root, 'assets/munka.png')).toString('base64') };
+    await w.webContents.executeJavaScript('window.paint(' + JSON.stringify(data) + ')');
+    const image = await w.webContents.capturePage();
+    const physical = screen.dipToScreenRect(null, display.bounds);
+    return image.resize({width:physical.width, height:physical.height}).toPNG();
+  } finally { w.destroy(); }
+}
+async function updateWallpaper() {
+  if (!state.preferences.wallpaper || wallpaperBusy || !state.preferences.wallpaperBackground) return;
+  wallpaperBusy = true;
+  const generation = wallpaperGeneration;
+  try {
+    const display = wallpaperDisplay(), content = wallpaperData(), file = state.preferences.wallpaperBackground;
+    const key = JSON.stringify({ content, file, modified:fs.statSync(file).mtimeMs, display:display.bounds, scale:display.scaleFactor });
+    if (key === wallpaperKey) return;
+    const monitors = JSON.parse(await ps(['-Action','get']));
+    const monitor = matchMonitor(monitors, screen.dipToScreenRect(null, display.bounds));
+    const image = await renderWallpaper(file, display, content);
+    if (!state.preferences.wallpaper || generation !== wallpaperGeneration) return;
+    const out = path.join(app.getPath('userData'), 'munka-wallpaper.png');
+    fs.writeFileSync(out, image);
+    await ps(['-Action','set','-ImagePath',out,'-MonitorId',monitor.Id]);
+    wallpaperKey = key;
+    if (state.preferences.wallpaperError) { state.preferences.wallpaperError='';saveInternal(); }
   } catch (e) {
-    state.logs.push({
-      id: domain.uid(),
-      at: new Date().toISOString(),
-      message: e.message,
-    });
-    state.preferences.wallpaperError = e.message;
-    saveInternal();
-  } finally {
-    wallpaperBusy = false;
-  }
+    if (state.preferences.wallpaperError !== e.message) {
+      state.logs.push({id:domain.uid(), at:new Date().toISOString(), message:e.message});
+      state.preferences.wallpaperError=e.message;saveInternal();
+    }
+  } finally { wallpaperBusy = false; }
 }
 app.whenReady().then(async () => {
   if (!primaryInstance) return;
@@ -391,6 +361,7 @@ app.whenReady().then(async () => {
   backup();
   setInterval(backup, 3600000).unref();
   handle("load", () => state);
+  handle("version", () => ({ version: app.getVersion(), build: 'desktop-widgets-2026-09-10' }));
   handle("ready", () => {
     mainRendererReady = true;
     startupLog("main-renderer-ready");
@@ -467,6 +438,19 @@ app.whenReady().then(async () => {
     return { name: path.basename(file), text: fs.readFileSync(file, "utf8") };
   });
   handle("desktop", async (action, value) => {
+    if (action === 'widget-size') {
+      if (!value || !['daily', 'projects'].includes(value.surface) || !['compact', 'roomy'].includes(value.size)) throw Error('Invalid widget size');
+      const isProject = value.surface === 'projects';
+      state.preferences[isProject ? 'projectsWidgetSize' : 'widgetSize'] = value.size;
+      const win = isProject ? projectsWidget : widget;
+      const current = win?.getBounds() || safeBounds(state.preferences[isProject ? 'projectsWidgetBounds' : 'widgetBounds']);
+      const size = value.size === 'roomy' ? { width: 440, height: 660 } : { width: 360, height: 480 };
+      const bounds = safeBounds({ ...current, ...size });
+      state.preferences[isProject ? 'projectsWidgetBounds' : 'widgetBounds'] = bounds;
+      if (win) win.setBounds(bounds);
+      saveInternal();
+      return true;
+    }
     const placementWindow = value === 'projects' ? projectsWidget : widget;
     if (action === 'widget-position' && placementWindow) {
       Menu.buildFromTemplate(screen.getAllDisplays().map((display, index) => ({
@@ -496,6 +480,15 @@ app.whenReady().then(async () => {
         id: String(d.id),
         name: `Display ${i + 1} · ${d.size.width} × ${d.size.height}`,
       }));
+    if (action === 'wallpaper-preview') {
+      let file = state.preferences.wallpaperBackground;
+      if (!file || !fs.existsSync(file)) {
+        const choice = await dialog.showOpenDialog(main, {title:'Choose an image for the wallpaper preview', properties:['openFile'], filters:[{name:'Background image',extensions:['png','jpg','jpeg']}]});
+        if (choice.canceled) return null;
+        file = choice.filePaths[0];
+      }
+      return (await renderWallpaper(file, wallpaperDisplay(), wallpaperData())).toString('base64');
+    }
     if (action === "wallpaper-enable") {
       const choice = await dialog.showMessageBox(main, {
         type: "question",
@@ -504,7 +497,7 @@ app.whenReady().then(async () => {
         cancelId: 0,
         message: "Enable wallpaper reminders?",
         detail:
-          "Munka will replace the selected display’s wallpaper. Windows slideshows will be paused. Your existing wallpaper will be saved and restored when you disable this feature.",
+          "Munka will replace the selected display’s wallpaper. Windows slideshows will be paused. Original static backgrounds are saved and restored when disabled. Slideshow timing and order cannot be restored automatically.",
       });
       if (choice.response !== 1) return false;
       const r = await dialog.showOpenDialog(main, {
@@ -514,8 +507,19 @@ app.whenReady().then(async () => {
         ],
       });
       if (r.canceled) return false;
-      if (!state.preferences.wallpaperOriginal)
-        state.preferences.wallpaperOriginal = await ps(["-Action", "get"]);
+      if (!state.preferences.wallpaperOriginal) {
+        const originals = JSON.parse(await ps(['-Action','get']));
+        const folder = path.join(app.getPath('userData'),'wallpaper-originals');
+        fs.mkdirSync(folder,{recursive:true});
+        originals.forEach((item,index) => {
+          if (item.Path && fs.existsSync(item.Path)) {
+            const copy=path.join(folder,'display-'+index+path.extname(item.Path));
+            fs.copyFileSync(item.Path,copy);item.Path=copy;
+          }
+        });
+        state.preferences.wallpaperOriginal = JSON.stringify(originals);
+      }
+      wallpaperGeneration++; wallpaperKey='';
       state.preferences.wallpaperBackground = r.filePaths[0];
       state.preferences.wallpaper = true;
       saveInternal();
@@ -523,6 +527,11 @@ app.whenReady().then(async () => {
       return true;
     }
     if (action === "wallpaper-disable") {
+      wallpaperGeneration++;wallpaperKey='';
+      state.preferences.wallpaper = false;
+      saveInternal();
+      // Let any in-flight Windows write settle before restoring the original.
+      while (wallpaperBusy) await new Promise(resolve => setTimeout(resolve,50));
       if (state.preferences.wallpaperOriginal)
         await ps([
           "-Action",
@@ -617,6 +626,7 @@ app.whenReady().then(async () => {
     if (state.logs.length !== beforeRules) saveInternal();
     lastTick = Date.now();
   }, 15000).unref();
+  updateWallpaper();
   setInterval(updateWallpaper, 60000).unref();
 });
 app.on("window-all-closed", () => {
@@ -625,4 +635,5 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   quitting = true;
 });
+
 

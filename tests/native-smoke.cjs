@@ -182,10 +182,24 @@ app.whenReady().then(async () => {
     await w.webContents.executeJavaScript(
       `document.querySelector('#close-drawer').click()`,
     );
-    const completedWidgetId = await widget.webContents.executeJavaScript(`(() => { const b = document.querySelector('[data-complete]'); const id = b.dataset.complete; b.click(); return id; })()`);
+    const completedWidgetId = await widget.webContents.executeJavaScript(`(() => { const b = document.querySelector('[data-complete]:not(.done)'); const id = b.dataset.complete; b.click(); return id; })()`);
     await delay(400);
     const retained = await widget.webContents.executeJavaScript(`document.querySelector('[data-complete="${completedWidgetId}"]')?.classList.contains('done')`);
     if (!retained) throw Error('Completed task disappeared from widget');
+    await w.webContents.executeJavaScript(`window.munka.desktop('widget-size',{surface:'daily',size:'roomy'})`);
+    if (widget.getBounds().width < 400) throw Error('Roomy widget preset did not resize');
+    await w.webContents.executeJavaScript(`window.munka.desktop('widget-size',{surface:'daily',size:'compact'})`);
+    const paper = new BrowserWindow({width:1280,height:720,show:false,webPreferences:{offscreen:true,sandbox:true,contextIsolation:true,nodeIntegration:false}});
+    try {
+      await paper.loadFile(path.resolve('src/wallpaper.html'));
+      const fixture = require('../electron/wallpaper-model.cjs').wallpaperContent(JSON.parse(fs.readFileSync(path.join(process.env.MUNKA_TEST_DATA,'planner.json'),'utf8')),'Friday, Sep 11');
+      const logo=fs.readFileSync(path.resolve('assets/munka.png')).toString('base64');
+      const bg=require('electron').nativeImage.createFromBitmap(Buffer.alloc(4*16*16,240),{width:16,height:16}).toPNG().toString('base64');
+      await paper.webContents.executeJavaScript('window.paint('+JSON.stringify({...fixture,logo,background:bg,mime:'image/png'})+')');
+      const rendered=await paper.webContents.executeJavaScript(`({title:document.querySelector('h1')?.textContent,logo:document.querySelector('header img').naturalWidth,checks:document.querySelectorAll('.done .mark svg').length})`);
+      if(rendered.title!=='Your day, in sight.' || !rendered.logo || !rendered.checks) throw Error('Wallpaper render failed');
+      fs.writeFileSync(path.join(out,'wallpaper.png'),(await paper.webContents.capturePage()).toPNG());
+    } finally { paper.destroy(); }
     await w.webContents.executeJavaScript(
       `(async()=>{const s=await window.munka.load();s.preferences.widget=false;await window.munka.save(s,s.revision)})()`,
     );
@@ -211,3 +225,4 @@ app.whenReady().then(async () => {
     app.exit(1);
   }
 });
+

@@ -106,6 +106,7 @@ let state,
   bulk = new Set(),
   displays = [],
   syncClient;
+let appVersion = { version: '0.2.0', build: 'Browser preview' };
 const isWidget = new URLSearchParams(location.search).has("widget");
 const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
 import { widgetModel } from './widget-model.mjs';
@@ -443,7 +444,7 @@ function settingsView() {
   const p = state.preferences;
   return (
     heading("Settings", "Make Munka feel at home on your desktop.", null) +
-    `<div class="settings"><h2>Appearance</h2><div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${["system", "light", "dark"].map((x) => `<option ${p.theme === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>${toggle("dev", "Dev Mode", "Show advanced views, dependencies, bulk actions, and automation tools.")}<h2 class="section-block">Desktop reminders</h2>${toggle("widget", "Desktop widget", "A small, interactive task list alongside your work.")}${widgetAppearance()}${toggle("alwaysOnTop", "Keep widget on top", "Keep your widget above other windows.")}${toggle("wallpaper", "Wallpaper reminders", "Place a task summary on your chosen desktop background.")}<div class="setting"><div><h3>Wallpaper placement</h3><p>The widget and wallpaper can run independently.</p></div><select id="wallpaper-position" aria-label="Wallpaper placement"><option value="right" ${p.wallpaperPosition === "right" ? "selected" : ""}>Right</option><option value="left" ${p.wallpaperPosition === "left" ? "selected" : ""}>Left</option></select></div><div class="setting"><h3>Wallpaper display</h3><select id="wallpaper-display" aria-label="Wallpaper display">${displays.length ? displays.map((d) => `<option value="${d.id}" ${p.wallpaperDisplay === d.id ? "selected" : ""}>${esc(d.name)}</option>`).join("") : "<option>Primary display</option>"}</select></div><div class="setting"><h3>Visible reminders</h3><select id="wallpaper-count" aria-label="Visible reminders">${[3, 5, 8].map((n) => `<option ${Number(p.wallpaperCount) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>${p.wallpaperError ? `<p class="inline-error">${esc(p.wallpaperError)}</p>` : ""}${toggle("privacy", "Hide task details on desktop", "Display “Upcoming task” instead of private task names.")}${toggle("background", "Keep running in the tray", "Closing the window keeps reminders active. Quit from the tray to stop them.")}<h2 class="section-block">Notifications</h2><p class="muted small">Windows notification settings and Focus settings may silence alerts. Munka cannot override them. Use the test below to check delivery.</p><button data-action="test-notification">Send test notification</button>${toggle("sound", "Reminder sounds", "Play a sound when Windows delivers a reminder.")}${toggle("quietEnabled", "Quiet hours", "Hold reminders and deliver a catch-up after quiet hours.")}<div class="form-grid spaced"><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div><h2 class="section-block">Automation</h2>${toggle("automationPaused", "Pause all automations", "Rules remain saved, including when Dev Mode is off.")}<h2 class="section-block">Your data</h2><p class="muted small">Your planner is stored on this computer. The Windows app keeps 14 rotating local backups. Import always shows a preview before changing your planner.</p><div class="actions"><button data-action="import">Import or restore</button><button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div><h2 class="section-block">Account & synchronization</h2><p class="muted small">Optional. Connect to a Munka sync service to use multiple PCs and shared projects. Local planning does not require an account.</p><p id="sync-status" role="status">${esc(state.sync.message || "Local only · No sync service connected")}</p><div class="actions"><button data-action="account">${state.sync.account ? "Manage account" : "Connect account"}</button>${state.sync.account ? '<button data-action="sync">Sync now</button><button data-action="accept-invite">Accept invitation</button>' : ""}</div></div>`
+    `<div class="settings"><p class="muted small">Munka ${esc(appVersion.version)} · ${esc(appVersion.build)}</p><h2>Appearance</h2><div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${["system", "light", "dark"].map((x) => `<option ${p.theme === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>${toggle("dev", "Dev Mode", "Show advanced views, dependencies, bulk actions, and automation tools.")}<h2 class="section-block">Desktop reminders</h2>${toggle("widget", "Desktop widget", "A small, interactive task list alongside your work.")}${widgetAppearance()}${toggle("alwaysOnTop", "Keep widget on top", "Keep your widget above other windows.")}${toggle("wallpaper", "Wallpaper reminders", "Place a task summary on your chosen desktop background.")}<button data-action="wallpaper-preview">Preview wallpaper</button><div class="setting"><div><h3>Wallpaper placement</h3><p>The widget and wallpaper can run independently.</p></div><select id="wallpaper-position" aria-label="Wallpaper placement"><option value="right" ${p.wallpaperPosition === "right" ? "selected" : ""}>Right</option><option value="left" ${p.wallpaperPosition === "left" ? "selected" : ""}>Left</option></select></div><div class="setting"><h3>Wallpaper display</h3><select id="wallpaper-display" aria-label="Wallpaper display">${displays.length ? displays.map((d) => `<option value="${d.id}" ${p.wallpaperDisplay === d.id ? "selected" : ""}>${esc(d.name)}</option>`).join("") : "<option>Primary display</option>"}</select></div><div class="setting"><h3>Visible reminders</h3><select id="wallpaper-count" aria-label="Visible reminders">${[3, 5, 8].map((n) => `<option ${Number(p.wallpaperCount) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>${p.wallpaperError ? `<p class="inline-error">${esc(p.wallpaperError)}</p>` : ""}${toggle("privacy", "Hide task details on desktop", "Display “Upcoming task” instead of private task names.")}${toggle("background", "Keep running in the tray", "Closing the window keeps reminders active. Quit from the tray to stop them.")}<h2 class="section-block">Notifications</h2><p class="muted small">Windows notification settings and Focus settings may silence alerts. Munka cannot override them. Use the test below to check delivery.</p><button data-action="test-notification">Send test notification</button>${toggle("sound", "Reminder sounds", "Play a sound when Windows delivers a reminder.")}${toggle("quietEnabled", "Quiet hours", "Hold reminders and deliver a catch-up after quiet hours.")}<div class="form-grid spaced"><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div><h2 class="section-block">Automation</h2>${toggle("automationPaused", "Pause all automations", "Rules remain saved, including when Dev Mode is off.")}<h2 class="section-block">Your data</h2><p class="muted small">Your planner is stored on this computer. The Windows app keeps 14 rotating local backups. Import always shows a preview before changing your planner.</p><div class="actions"><button data-action="import">Import or restore</button><button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div><h2 class="section-block">Account & synchronization</h2><p class="muted small">Optional. Connect to a Munka sync service to use multiple PCs and shared projects. Local planning does not require an account.</p><p id="sync-status" role="status">${esc(state.sync.message || "Local only · No sync service connected")}</p><div class="actions"><button data-action="account">${state.sync.account ? "Manage account" : "Connect account"}</button>${state.sync.account ? '<button data-action="sync">Sync now</button><button data-action="accept-invite">Accept invitation</button>' : ""}</div></div>`
   );
 }
 function devView() {
@@ -466,7 +467,8 @@ function devView() {
 }
 function widgetAppearance() {
   const design = state.preferences.widgetDesign || 'glass';
-  return `<details class="widget-customize" ${widgetAppearanceOpen ? 'open' : ''}><summary>Appearance</summary><div class="widget-customize-body"><label for="widget-design">Widget design</label><select id="widget-design">${[['glass','Glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select>${toggle('widgetProjects', 'Show projects', 'Keep project work in its own kiosk.')}</div></details>`;
+  const size = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
+  return `<details class="widget-customize" ${widgetAppearanceOpen ? 'open' : ''}><summary>Appearance</summary><div class="widget-customize-body"><label for="widget-design">Widget design</label><select id="widget-design">${[['glass','Glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select><label for="widget-size">Window size preset</label><select id="widget-size"><option value="compact" ${size === 'compact' ? 'selected' : ''}>Compact</option><option value="roomy" ${size === 'roomy' ? 'selected' : ''}>Roomy</option></select><p class="small muted">Or drag a window edge to choose your own size.</p>${toggle('widgetProjects', 'Show projects', 'Keep project work in its own kiosk.')}</div></details>`;
 }
 function projectKiosk(projects) {
   return `<section class="project-kiosk" aria-label="Current projects"><div class="widget-section-title"><span class="widget-eyebrow">PROJECT WORK</span><span class="widget-count">${projects.length} active</span></div><h1>In progress</h1><p class="muted small">A little space for the bigger things.</p>${projects.map(p => `<section class="widget-project"><div class="project-heading"><h2>${esc(state.preferences.privacy ? 'Current project' : p.name)}</h2><span class="small muted">${p.done}/${p.tasks.length} done</span></div><progress aria-label="Project completion" max="${p.tasks.length || 1}" value="${p.done}"></progress>${p.tasks.map(row).join('') || '<p class="small muted">No tasks yet. Add one in Projects.</p>'}</section>`).join('') || '<p class="widget-empty">No active projects yet. Create one in your planner.</p>'}</section>`;
@@ -486,6 +488,7 @@ function render() {
     document.documentElement.classList.add('widget-root');
     document.body.classList.toggle('widget-browser', !window.munka);
     document.body.dataset.widgetDesign = design;
+    document.body.dataset.widgetSize = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
     const showProjects = state.preferences.widgetProjects !== false;
     $("#app").innerHTML =
       `<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="widget-position" aria-label="Choose widget display and position">Position</button><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></div></header><p class="muted small widget-position-help">Drag the header to move · Resize from an edge</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><span class="widget-eyebrow">DAILY TASKS & REMINDERS</span><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || '<p class="widget-empty">A clear day. Add a task in your planner.</p>'}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
@@ -1147,6 +1150,11 @@ async function action(a) {
         return await bridge.desktop("open");
       case "widget-position":
         return await bridge.desktop("widget-position", isProjectsWidget ? 'projects' : 'daily');
+      case "wallpaper-preview": {
+        const preview = await bridge.desktop('wallpaper-preview');
+        if (preview) drawer('Wallpaper preview', `<p class="small muted">Preview only. Your wallpaper has not changed.</p><img class="wallpaper-preview-image" alt="Wallpaper reminder preview" src="data:image/png;base64,${preview}">`);
+        return;
+      }
       case "accept-invite":
         return acceptInvite();
       case "account":
@@ -1159,6 +1167,15 @@ async function action(a) {
   }
 }
 function bind() {
+  const sizeControl = document.querySelector('#widget-size');
+  if (sizeControl) sizeControl.onchange = async e => {
+    const size = e.target.value;
+    const key = isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize';
+    if (window.munka) {
+      try { await bridge.desktop('widget-size', { surface: isProjectsWidget ? 'projects' : 'daily', size }); }
+      catch (error) { toast(error.message); }
+    } else { state.preferences[key] = size; await save(); }
+  };
   const customize = document.querySelector('.widget-customize');
   if (customize) customize.ontoggle = () => { widgetAppearanceOpen = customize.open; };
   $$("[data-view]").forEach(
@@ -1568,6 +1585,7 @@ setInterval(automaticSync, 60000);
 window.addEventListener("online", automaticSync);
 try {
   state = await bridge.load();
+  if (bridge.version) appVersion = await bridge.version();
   if (bridge.session && !isWidget) {
     const session = await bridge.session("load");
     if (session) {
@@ -1598,6 +1616,8 @@ try {
     null,
   );
 }
+
+
 
 
 

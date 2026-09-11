@@ -18,7 +18,7 @@ const pkg = JSON.parse(
 );
 delete pkg.devDependencies;
 delete pkg.scripts;
-pkg.build.directories.output = path.join(root, "outputs", "release");
+pkg.build.directories.output = process.env.MUNKA_BUILD_OUTPUT || path.join(root, "outputs", "release");
 pkg.build.electronDist = path.join(root, "node_modules", "electron", "dist");
 pkg.build.electronVersion = require(
   path.join(root, "node_modules", "electron", "package.json"),
@@ -41,3 +41,4 @@ execFileSync(
   ],
   { cwd: root, stdio: "inherit" },
 );
+

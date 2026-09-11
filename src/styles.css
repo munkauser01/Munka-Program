@@ -56,6 +56,8 @@ textarea:focus-visible {
   outline: 2px solid var(--accent);
 }
 button {
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
   color: inherit;
   background: var(--panel);
@@ -823,9 +825,9 @@ th {
 }
 .widget-page #app { padding: 12px; }
 .widget-page .widget-layout {
-  padding: 22px;
+  padding: 18px;
   border-radius: 28px;
-  background: rgba(246, 250, 246, .88);
+  background: rgba(231, 239, 223, .91);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.9), 0 10px 28px rgba(30,55,43,.12);
   backdrop-filter: blur(28px) saturate(130%);
 }
@@ -843,7 +845,14 @@ th {
 .widget-eyebrow { font-size: 10px; font-weight: 650; letter-spacing: .08em; color: #526b60; }
 .widget-count { font-size: 11px; white-space: nowrap; color: var(--muted); }
 .widget-page h1 { font-size: 23px; margin: 12px 0 8px; letter-spacing: -.025em; }
-.widget-page .task-row { gap: 10px; padding: 16px 0; border-color: rgba(68,100,78,.14); }
+.widget-page .task-row { gap: 10px; padding: 12px 0; border-color: rgba(68,100,78,.14); }
+.widget-browser #app { max-width: 384px; margin: 0 auto; }
+.widget-browser[data-widget-size="roomy"] #app { max-width: 464px; }
+.widget-page .brand img { width: 34px; height: 34px; object-fit: contain; }
+.widget-page.dark .brand img { filter: invert(1); }
+.widget-customize select { text-align: center; margin-bottom: 12px; }
+.wallpaper-preview-image { width: 100%; height: auto; border-radius: 16px; }
+.empty button { line-height: 1.2; min-height: 44px; }
 .widget-page .task-due { flex-shrink: 0; font-size: 11px; }
 .widget-page .task-row button.quiet { flex-shrink: 0; width: 30px; padding: 5px; }
 .widget-page .task-row .check { width: 24px; height: 24px; }
@@ -1095,3 +1104,4 @@ a {
     font-size: 13px;
   }
 }
+

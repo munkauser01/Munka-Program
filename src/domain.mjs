@@ -26,6 +26,8 @@ export function initialState() {
       dev: false,
       widget: false,
       widgetDesign: "glass",
+      widgetSize: "compact",
+      projectsWidgetSize: "compact",
       widgetProjects: true,
       wallpaper: false,
       alwaysOnTop: false,
@@ -368,3 +370,4 @@ export function isQuiet(p, now = new Date()) {
     ? t >= p.quietStart && t < p.quietEnd
     : t >= p.quietStart || t < p.quietEnd;
 }
+

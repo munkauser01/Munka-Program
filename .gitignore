@@ -2,8 +2,10 @@ node_modules/
 work/
 outputs/release/
 outputs/release-current/
+outputs/release-*/
 outputs/*.zip
 .env*
 !.env.example
 *.log
 .impeccable/review/
+

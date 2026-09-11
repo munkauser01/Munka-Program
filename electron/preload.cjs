@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("munka", {
   load: () => ipcRenderer.invoke("load"),
+  version: () => ipcRenderer.invoke("version"),
   ready: () => ipcRenderer.invoke("ready"),
   onOpenTask: (callback) => {
     const listener = (_, id) => callback(id);
@@ -19,3 +20,4 @@ contextBridge.exposeInMainWorld("munka", {
     return () => ipcRenderer.removeListener("change", listener);
   },
 });
+

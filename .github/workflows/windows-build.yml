@@ -1,6 +1,8 @@
 name: Windows preview build
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -39,3 +41,13 @@ jobs:
           path: outputs/release/*.exe
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve preview screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Munka-UI-checks
+          path: .impeccable/review/*.png
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+

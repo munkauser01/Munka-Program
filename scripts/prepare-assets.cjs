@@ -1,4 +1,4 @@
-// Recreate the original extracted logo assets from the repository's text payload.
+// Recreate the current Munka logo assets from the repository's text payload.
 const fs = require("node:fs"),
   path = require("node:path");
 const source = path.join(__dirname, "asset-data.json");
@@ -12,3 +12,4 @@ if (fs.existsSync(source)) {
       Buffer.from(data, "base64"),
     );
 }
+

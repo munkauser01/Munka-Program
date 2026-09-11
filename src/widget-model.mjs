@@ -7,3 +7,4 @@ export function widgetModel(state) {
   const projectIds = new Set(state.projects.map(p => p.id));
   return { daily: tasks.filter(t => !projectIds.has(t.project)), projects };
 }
+
