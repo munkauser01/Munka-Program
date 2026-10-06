@@ -30,7 +30,8 @@ On iPhone, open the hosted URL in Safari, use Share and Add to Home Screen. On A
 Install Node 24 and pnpm 11.19.0 on a matching Mac, then:
 
 ```sh
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --ignore-scripts
+node node_modules/electron/install.js
 node --test tests/platform-beta.test.mjs tests/browser-bridge.test.mjs
 node scripts/test-native.cjs tests/mac-beta-native.cjs
 pnpm pack:mac arm64
@@ -38,7 +39,7 @@ pnpm pack:mac arm64
 
 Use `x64` on Intel. `pack:mac` produces an architecture-specific ZIP and DMG under `outputs/mac-beta-0.12.0-beta.1`. Build metadata records checksums and explicitly marks the beta unsigned/not notarized. Do not present these artifacts as a public signed release. macOS may block an unsigned downloaded app; public distribution requires Developer ID signing, hardened-runtime entitlements and notarization in a separate release configuration.
 
-The included `.github/workflows/mac-beta.yml` uses matching GitHub macOS runners. Its unit and native smoke checks must pass before packaging. It runs on the isolated beta branch or manual dispatch when available. Historical GitHub main is much older than the local app, so the draft includes the current application source needed to build this beta and must be reviewed before merging.
+The included `.github/workflows/mac-beta.yml` uses matching GitHub macOS runners. Its unit and native smoke checks must pass before packaging; a second check launches each actual packaged app before uploading artifacts. It runs on the isolated beta branch or manual dispatch when available. Historical GitHub main is much older than the local app, so the [draft beta PR](https://github.com/munkauser01/Munka-Program/pull/1) includes the current application source needed to build this beta and must be reviewed before merging.
 
 ## Verification and limits
 
@@ -46,7 +47,7 @@ The included `.github/workflows/mac-beta.yml` uses matching GitHub macOS runners
 - Chrome phone checks pass: signup confirmation gate, task capture/editor save, all calendar modes, secondary destinations, account storage isolation and offline reload/new-task persistence.
 - Phone, small phone, landscape, tablet, desktop and dark-mode layouts checked. Native Windows navigation/account regression suite passes.
 - Signup/login browser tests use intercepted synthetic Supabase responses, not the owner's password or a new real account. Delivery, confirmation returns and real-provider login still need acceptance.
-- Mac installers and actual macOS smoke results are pending the macOS runner. Physical iPhone/Android Safari/Chrome acceptance is also pending.
+- Source-app smoke checks have passed on actual Apple Silicon and Intel macOS runners. The first packaging attempt revealed a too-small icon; packaging now generates a 512px icon from the existing artwork. Installer and packaged-app validation results are still pending the repaired build. Physical iPhone/Android Safari/Chrome acceptance is also pending.
 - Mobile AI, live provider calendars, syllabus document extraction, closed-app alerts and desktop overlays are unavailable in this beta. Cloud sync and shared calendars remain unfinished across platforms.
 - Existing three domain regressions remain outside this platform pass; the prior broad suite was 106/109. No clean security-audit claim is made.
 

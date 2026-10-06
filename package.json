@@ -46,7 +46,7 @@
     "mac": {
       "target": ["zip", "dmg"],
       "category": "public.app-category.productivity",
-      "icon": "assets/munka.png",
+      "icon": "assets/app-512.png",
       "artifactName": "Munka-${version}-mac-${arch}.${ext}",
       "identity": null,
       "hardenedRuntime": false

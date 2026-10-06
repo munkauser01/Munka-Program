@@ -13,6 +13,8 @@ fs.mkdirSync(path.join(root, 'work'), { recursive: true });
 const stage = fs.mkdtempSync(path.join(root, 'work', 'mac-package-'));
 try {
   for (const folder of ['src', 'electron', 'assets']) fs.cpSync(path.join(root, folder), path.join(stage, folder), { recursive: true });
+  const iconEnvironment = { ...process.env }; delete iconEnvironment.ELECTRON_RUN_AS_NODE;
+  execFileSync(require('electron'), [path.join(__dirname, 'prepare-mobile-icons.cjs'), stage], { env: iconEnvironment, stdio: 'inherit' });
   fs.mkdirSync(path.join(stage, 'server'));
   fs.copyFileSync(path.join(root, 'server/ai-planner.mjs'), path.join(stage, 'server/ai-planner.mjs'));
   fs.copyFileSync(path.join(root, 'pnpm-lock.yaml'), path.join(stage, 'pnpm-lock.yaml'));
