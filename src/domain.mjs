@@ -23,12 +23,21 @@ export function initialState() {
     trash: [],
     preferences: {
       theme: "system",
+      calendarMode: "month",
+      calendarAgendaEmpty: false,
       dev: false,
-      widget: false,
+      widget: true,
+      widgetOverlayVersion: 1,
+      widgetLayer: "desktop",
+      widgetClickThrough: false,
+      launchAtLogin: false,
       widgetDesign: "glass",
+      widgetSurface: "seamless",
+      widgetInk: "dark",
       widgetSize: "compact",
       projectsWidgetSize: "compact",
       widgetProjects: true,
+      widgetHiddenTasks: [],
       wallpaper: false,
       alwaysOnTop: false,
       privacy: false,
@@ -51,9 +60,12 @@ export function task(input = {}) {
     notes: "",
     date: "",
     time: "",
+    planDate: "",
+    estimateMinutes: null,
     priority: "Normal",
     status: "To do",
     kind: "Task",
+    color: 'auto',
     course: "",
     project: "",
     recurrence: "None",
@@ -69,6 +81,9 @@ export function task(input = {}) {
   if (t.title.length > 500) throw Error("Keep the title under 500 characters.");
   if (t.date && !validDate(t.date)) throw Error("Choose a valid due date.");
   if (t.time && !t.date) throw Error("A deadline time needs a date.");
+  if (t.planDate && !validDate(t.planDate)) throw Error('Choose a valid planned work date.');
+  if (t.estimateMinutes !== null && (!Number.isInteger(t.estimateMinutes) || t.estimateMinutes < 1 || t.estimateMinutes > 1440)) throw Error('Choose an estimate between 1 and 1,440 minutes.');
+  if (!validCalendarColor(t.color)) throw Error('Choose a valid task color.');
   if (!["To do", "In progress", "Done"].includes(t.status))
     throw Error("Invalid task status.");
   return t;
@@ -107,6 +122,7 @@ export function complete(s, id, now = new Date()) {
       completedAt: null,
       nextOccurrence: null,
       previousOccurrence: t.id,
+      planDate: '',
       subtasks: t.subtasks.map((x) => ({ ...x, done: false })),
       reminder: reminder ? reminder.toISOString() : "",
     });
@@ -121,7 +137,7 @@ export function blocked(s, t) {
   );
 }
 export function runRules(s, trigger, t, now = new Date()) {
-  if (s.preferences.automationPaused) return;
+  if (s.preferences.automationPaused || t.aiDrafted === true) return;
   for (const r of s.rules) {
     if (
       !r.enabled ||
@@ -164,6 +180,11 @@ export function validateBackup(s) {
     if (!Array.isArray(s[k])) throw Error(`Backup is missing ${k}.`);
   if (!s.preferences || typeof s.preferences !== "object")
     throw Error("Backup has no preferences.");
+  if (s.preferences.dayBudgets !== undefined && (!s.preferences.dayBudgets || typeof s.preferences.dayBudgets !== 'object' || Array.isArray(s.preferences.dayBudgets) || Object.entries(s.preferences.dayBudgets).some(([day,n]) => !validDate(day) || (n !== null && (!Number.isInteger(n) || n < 0 || n > 1440))))) throw Error('Invalid daily work capacity.');
+  if (s.preferences.widgetHiddenTasks !== undefined &&
+      (!Array.isArray(s.preferences.widgetHiddenTasks) || s.preferences.widgetHiddenTasks.length > 100000 ||
+       s.preferences.widgetHiddenTasks.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id))))
+    throw Error('Invalid hidden widget tasks.');
   const ids = new Set();
   for (const k of [
     "tasks",
@@ -294,49 +315,7 @@ export function exportCSV(tasks) {
     tasks.map((t) => keys.map((k) => cell(t[k])).join(",")).join("\r\n")
   );
 }
-export function parseICS(text) {
-  const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
-  const result = [];
-  let e;
-  for (const line of lines) {
-    if (line === "BEGIN:VEVENT") e = { id: uid(), kind: "Event" };
-    else if (line === "END:VEVENT" && e) {
-      if (!e.title || !e.start)
-        throw Error("Each calendar event needs a title and start.");
-      result.push(e);
-      e = null;
-    } else if (e) {
-      const p = line.indexOf(":");
-      const key = line.slice(0, p),
-        v = line
-          .slice(p + 1)
-          .replace(/\\n/g, "\n")
-          .replace(/\\,/g, ",");
-      if (key === "SUMMARY") e.title = v;
-      if (key === "UID") e.importId = v;
-      if (key === "RRULE")
-        throw Error(
-          "Recurring ICS events need expansion before import. Export individual occurrences.",
-        );
-      if (key.startsWith("DTSTART") || key.startsWith("DTEND")) {
-        if (key.includes("TZID="))
-          throw Error(
-            "Export calendar times in UTC or local time; named time zones are not supported yet.",
-          );
-        const m = v.match(
-          /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/,
-        );
-        if (!m) throw Error("Unsupported calendar date.");
-        const stamp = `${m[1]}-${m[2]}-${m[3]}${m[4] ? `T${m[4]}:${m[5]}:${m[6]}${m[7] || ""}` : "T00:00:00"}`;
-        e[key.startsWith("DTSTART") ? "start" : "end"] = m[7]
-          ? new Date(stamp).toISOString()
-          : stamp;
-        e.allDay = !m[4];
-      }
-    }
-  }
-  return result;
-}
+export { parseICS } from './calendar-import.mjs';
 export function overlaps(a, b) {
   return (
     new Date(a.start) < new Date(b.end || b.start) &&
@@ -370,4 +349,4 @@ export function isQuiet(p, now = new Date()) {
     ? t >= p.quietStart && t < p.quietEnd
     : t >= p.quietStart || t < p.quietEnd;
 }
-
+import { validCalendarColor } from './calendar-colors.mjs';

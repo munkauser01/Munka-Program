@@ -1,0 +1,42 @@
+name: Munka Mac beta
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/mac-mobile-beta-*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/prepare-assets.cjs
+      - run: node scripts/prepare-calendar.cjs
+      - run: node --test tests/platform-beta.test.mjs tests/browser-bridge.test.mjs
+      - run: node scripts/test-native.cjs tests/mac-beta-native.cjs
+      - run: pnpm pack:mac ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Munka-mac-beta-${{ matrix.arch }}
+          path: |
+            outputs/mac-beta-*/*.zip
+            outputs/mac-beta-*/*.dmg
+            outputs/mac-beta-*/build-*.json
+            outputs/mac-native-*/verification.json
+          if-no-files-found: error
+          retention-days: 14

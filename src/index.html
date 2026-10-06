@@ -2,16 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f1f4ee" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="../assets/app-192.png" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https: http://127.0.0.1:* http://localhost:*"
     />
     <title>Munka — Your day, in sight</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="calendar.css" />
+    <link rel="stylesheet" href="account-entry.css" />
+    <link rel="stylesheet" href="mobile.css" />
   </head>
   <body>
-    <!-- THESIS: Bring deadlines and planned time into one readable desk. OWN-WORLD: warm paper, sage navigation, charcoal Segoe UI and extracted monkey emblem. STORY: capture, plan, complete, keep in sight. FIRST VIEWPORT: 220px navigation, generous task ledger, 300px day agenda; add-task at upper right and inline capture. FORM: user-pinned desktop workspace; seed 9432e7d3 acknowledged, pinned PRD overrides alternative composition. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <a class="skip" href="#main">Skip to planner</a>
     <div id="app"><p class="loading">Opening your planner…</p></div>
     <div id="toast" role="status" aria-live="polite"></div>

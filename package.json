@@ -1,15 +1,21 @@
 {
   "name": "munka-program",
-  "version": "0.2.0",
+  "version": "0.12.0-beta.1",
   "private": true,
-  "description": "Munka Windows school and daily-life planner",
+  "description": "Munka school and daily-life planner",
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node scripts/launch.cjs",
     "test": "node --test tests/*.test.mjs",
+    "test:ai": "node scripts/test-native.cjs tests/managed-ai-native-smoke.cjs",
+    "server": "node server/server.mjs",
     "pack": "node scripts/build-windows.cjs",
+    "pack:mac": "node scripts/build-mac.cjs",
+    "build:mobile": "node scripts/build-mobile.cjs",
+    "mobile": "node scripts/serve-mobile.cjs",
     "preview": "node scripts/preview.cjs",
-    "prestart": "node scripts/prepare-assets.cjs"
+    "prestart": "node scripts/prepare-assets.cjs",
+    "test:calendar": "node scripts/test-native.cjs tests/calendar-smoke.cjs"
   },
   "devDependencies": {
     "electron": "44.2.0",
@@ -26,14 +32,24 @@
       "src/**/*",
       "electron/**/*",
       "assets/**/*",
+      "server/ai-planner.mjs",
       "package.json"
     ],
     "asarUnpack": [
-      "electron/wallpaper.ps1"
+      "electron/wallpaper.ps1",
+      "electron/overlay.ps1"
     ],
     "win": {
       "target": "nsis",
       "icon": "assets/munka.ico"
+    },
+    "mac": {
+      "target": ["zip", "dmg"],
+      "category": "public.app-category.productivity",
+      "icon": "assets/munka.png",
+      "artifactName": "Munka-${version}-mac-${arch}.${ext}",
+      "identity": null,
+      "hardenedRuntime": false
     },
     "nsis": {
       "oneClick": false,
@@ -42,6 +58,19 @@
     },
     "electronDist": "node_modules/electron/dist"
   },
-  "author": "Munka"
+  "author": "Munka",
+  "calendarClientIds": {
+    "google": "296289486971-r4d5tkrvrit8c5dkqdn2dan5upsoqlik.apps.googleusercontent.com"
+  },
+  "munkaAccount": {
+    "url": "https://pkgoupnhdpdeluychmqr.supabase.co",
+    "publishableKey": "sb_publishable_141TOJnHB4E5WqpE4yPa_g_GJM8eodr"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "ical.js": "2.2.1",
+    "mammoth": "1.12.3",
+    "pdfjs-dist": "6.3.289",
+    "windows-iana": "5.1.0"
+  }
 }
-

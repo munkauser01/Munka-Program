@@ -3,9 +3,12 @@ work/
 outputs/release/
 outputs/release-current/
 outputs/release-*/
+outputs/mobile-beta-*/
+outputs/mac-beta-*/
+outputs/mobile-check-*/
+outputs/mac-native-*/
 outputs/*.zip
 .env*
 !.env.example
 *.log
 .impeccable/review/
-

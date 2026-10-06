@@ -3,7 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
-const executable = path.join(root, 'node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron');
+const executable = require('electron');
 if (!fs.existsSync(executable)) {
   console.error('Munka runtime is missing. Install dependencies before launching.');
   process.exitCode = 1;

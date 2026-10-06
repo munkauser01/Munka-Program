@@ -1,5 +1,12 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("munka", {
+  // Sandboxed preloads cannot require local modules. Keep this small mirror in
+  // parity with platform-policy.cjs (covered by the platform beta test).
+  capabilities: { platform: process.platform, desktop: true, overlays: process.platform === 'win32', wallpaper: process.platform === 'win32', notifications: true, syllabus: true, connections: true, ai: true },
+  account: async (action, data) => {const r=await ipcRenderer.invoke('account',action,data);if(!r.ok)throw Error(r.error);return r.value;},
+  onAccessChange: callback => { const listener = (_, value) => callback(value); ipcRenderer.on('access-change', listener); return () => ipcRenderer.removeListener('access-change', listener); },
+  calendars: async (action,data) => {const r=await ipcRenderer.invoke('calendars',action,data);if(!r.ok)throw Error(r.error);return r.value;},
+  syllabus: async (action,data) => {const r=await ipcRenderer.invoke('syllabus',action,data);if(!r.ok)throw Error(r.error);return r.value;},
   load: () => ipcRenderer.invoke("load"),
   version: () => ipcRenderer.invoke("version"),
   ready: () => ipcRenderer.invoke("ready"),
@@ -8,7 +15,11 @@ contextBridge.exposeInMainWorld("munka", {
     ipcRenderer.on("open-task", listener);
     return () => ipcRenderer.removeListener("open-task", listener);
   },
-  session: (action, data) => ipcRenderer.invoke("session", action, data),
+  ai: async (action, data) => {
+    const result = await ipcRenderer.invoke("ai", action, data);
+    if (!result.ok) throw Error(result.error);
+    return result.value;
+  },
   save: (state, revision) => ipcRenderer.invoke("save", state, revision),
   exportFile: (text, extension) =>
     ipcRenderer.invoke("export", text, extension),
@@ -20,4 +31,3 @@ contextBridge.exposeInMainWorld("munka", {
     return () => ipcRenderer.removeListener("change", listener);
   },
 });
-

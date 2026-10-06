@@ -9,14 +9,24 @@ const {
   screen,
   nativeImage,
   safeStorage,
+  shell,
+  powerMonitor,
 } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { execFile } = require("node:child_process");
 const root = path.join(__dirname, "..");
+const capabilities = require('./platform-policy.cjs').platformPolicy();
 const { widgetBounds } = require('./widget-bounds.cjs');
 const { wallpaperContent, matchMonitor } = require('./wallpaper-model.cjs');
+const { createOverlayController } = require('./overlay-controller.cjs');
+const { EDGES, overlayLayer, overlayWindowOptions, resizedOverlay, stayInBackground } = require('./overlay-policy.cjs');
+let overlayController;
+let aiService;
+let calendarService, syllabusService;
+let accessMode = !app.isPackaged && process.env.MUNKA_TEST_DATA && process.env.MUNKA_TEST_AUTH_PANEL !== 'true' ? 'local' : 'locked';
+const overlayResize = new Map();
 let wallpaperKey = '', wallpaperGeneration = 0;
 let main,
   pendingTask,
@@ -27,8 +37,7 @@ let main,
   state,
   domain,
   quitting = false,
-  store,
-  writeQueue = Promise.resolve();
+  store;
 let lastTick = Date.now(),
   wallpaperTimer,
   wallpaperBusy = false;
@@ -64,7 +73,7 @@ app.on("child-process-gone", (_event, details) =>
     exitCode: details.exitCode,
   }),
 );
-app.setAppUserModelId("app.munka.planner");
+if (process.platform === 'win32') app.setAppUserModelId("app.munka.planner");
 const ps = (args) =>
   new Promise((resolve, reject) =>
     execFile(
@@ -102,6 +111,7 @@ function persist() {
   fs.renameSync(temp, store);
 }
 function broadcast() {
+  if (accessMode === 'locked') return;
   for (const w of BrowserWindow.getAllWindows())
     if (!w.isDestroyed()) w.webContents.send("change", state);
 }
@@ -141,14 +151,14 @@ function showMain(id) {
   if (!main || main.isDestroyed()) createMain();
   main.show();
   main.focus();
-  if (pendingTask && mainRendererReady) {
+  if (pendingTask && mainRendererReady && accessMode !== 'locked') {
     main.webContents.send("open-task", pendingTask);
     pendingTask = undefined;
   }
 }
 function createMain() {
   mainRendererReady = false;
-  main = new BrowserWindow(options());
+  main = new BrowserWindow(options({ show: !process.env.MUNKA_TEST_DATA && !process.argv.includes('--background') }));
   secure(main);
   main.webContents.on("render-process-gone", (_event, details) => {
     startupLog("main-renderer-gone", {
@@ -165,7 +175,7 @@ function createMain() {
     app.exit(1);
   });
   main.on("close", (e) => {
-    if (!quitting && state.preferences.background) {
+    if (!quitting && stayInBackground(state.preferences)) {
       e.preventDefault();
       main.hide();
     }
@@ -174,95 +184,170 @@ function createMain() {
 function safeBounds(b) {
   return widgetBounds(b, screen.getAllDisplays(), screen.getPrimaryDisplay());
 }
+function overlaySurfaces() {
+  return [widget, projectsWidget].filter(win => win && !win.isDestroyed());
+}
+function nativeOverlayUpdate() {
+  if (quitting || process.platform !== 'win32') return;
+  if (!overlayController) {
+    overlayController = createOverlayController({
+      script: app.isPackaged ? path.join(process.resourcesPath, 'app.asar.unpacked', 'electron', 'overlay.ps1') : path.join(__dirname, 'overlay.ps1'),
+      onError(error) {
+        if (quitting || !state || state.preferences.overlayError === error.message) return;
+        state.preferences.overlayError = error.message; saveInternal();
+      },
+      onReady() {
+        if (state?.preferences.overlayError) { state.preferences.overlayError = ''; saveInternal(); }
+      },
+    });
+  }
+  overlayController.update(overlaySurfaces().filter(win => win.munkaOverlayReady).map(win => {
+    const handle = win.getNativeWindowHandle();
+    return {
+      surface: win === projectsWidget ? 'projects' : 'daily',
+      handle: (handle.length === 8 ? handle.readBigUInt64LE(0) : BigInt(handle.readUInt32LE(0))).toString(),
+      layer: overlayLayer(state.preferences),
+    };
+  }));
+}
+function rememberOverlay(win, surface) {
+  if (win.isDestroyed()) return;
+  const key = surface === 'projects' ? 'projectsWidgetBounds' : 'widgetBounds';
+  const bounds = safeBounds(win.getBounds());
+  if (JSON.stringify(bounds) !== JSON.stringify(win.getBounds())) win.setBounds(bounds);
+  if (JSON.stringify(state.preferences[key]) !== JSON.stringify(bounds)) {
+    state.preferences[key] = bounds; saveInternal();
+  }
+}
+function createOverlay(surface, bounds) {
+  const isProject = surface === 'projects';
+  const win = new BrowserWindow(options(overlayWindowOptions(bounds, isProject ? 'Munka projects overlay' : 'Munka daily overlay')));
+  secure(win);
+  let timer;
+  const remember = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!overlayResize.has(surface)) rememberOverlay(win, surface);
+    }, 450);
+  };
+  win.on('move', remember);
+  win.on('resize', remember);
+  win.on('moved', remember);
+  win.on('resized', remember);
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return;
+    win.munkaOverlayReady = true;
+    // Show without taking focus away from the planner or whatever the user is typing.
+    if (!process.env.MUNKA_TEST_DATA) win.showInactive();
+    rememberOverlay(win, surface);
+    nativeOverlayUpdate();
+  });
+  win.webContents.on('render-process-gone', () => {
+    state.preferences.overlayError = 'An overlay stopped responding. Use Recover widgets in the Munka tray menu.';
+    saveInternal();
+  });
+  win.loadFile(path.join(root, 'src/index.html'), { query: { widget: isProject ? 'projects' : '1' } }).catch(() => {
+    if (win.isDestroyed() || accessMode === 'locked') return;
+    state.preferences.overlayError = 'An overlay could not load. Use Recover widgets in the Munka tray menu.';
+    saveInternal();
+  });
+  win.on('close', () => {
+    rememberOverlay(win, surface);
+    if (!quitting) state.preferences[isProject ? 'widgetProjects' : 'widget'] = false;
+    saveInternal();
+  });
+  win.on('closed', () => {
+    clearTimeout(timer); overlayResize.delete(surface);
+    if (isProject && projectsWidget === win) projectsWidget = null;
+    if (!isProject && widget === win) widget = null;
+    nativeOverlayUpdate(); updateTray();
+  });
+  return win;
+}
 function syncWidget() {
-  syncProjectsWidget();
-  if (!state.preferences.widget) {
-    if (widget) {
-      widget.destroy();
-      widget = null;
-    }
+  if (!capabilities.overlays) return;
+  if (accessMode === 'locked') {
+    if (widget && !widget.isDestroyed()) widget.destroy();
+    if (projectsWidget && !projectsWidget.isDestroyed()) projectsWidget.destroy();
+    widget = null; projectsWidget = null;
     return;
   }
-  if (!widget) {
-    widget = new BrowserWindow(
-      options({
-        ...safeBounds(state.preferences.widgetBounds),
-        minWidth: 290,
-        minHeight: 260,
-        title: 'Munka widget',
-        movable: true,
-        resizable: true,
-        alwaysOnTop: !!state.preferences.alwaysOnTop,
-        skipTaskbar: true,
-      }),
-    );
-    secure(widget);
-    widget.loadFile(path.join(root, "src/index.html"), {
-      query: { widget: "1" },
-    });
-    widget.on("close", () => {
-      state.preferences.widgetBounds = widget.getBounds();
-      widget = null;
-      if (!quitting) state.preferences.widget = false;
-      saveInternal();
-    });
-    let timer;
-    const remember = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (widget) {
-          state.preferences.widgetBounds = widget.getBounds();
-          saveInternal();
-        }
-      }, 500);
-    };
-    widget.on("moved", remember);
-    widget.on("resized", remember);
+  syncProjectsWidget();
+  if (!state.preferences.widget) {
+    if (widget) widget.destroy();
+  } else {
+    if (!widget || widget.isDestroyed()) widget = createOverlay('daily', safeBounds(state.preferences.widgetBounds));
+    widgetMaterial(widget);
   }
-  widget.setAlwaysOnTop(!!state.preferences.alwaysOnTop);
-  widgetMaterial(widget);
+  nativeOverlayUpdate(); updateTray();
 }
 function widgetMaterial(win) {
-  const glass = !state.preferences.widgetDesign || state.preferences.widgetDesign === 'glass';
-  try {
-    win.setBackgroundMaterial(glass ? 'acrylic' : 'none');
-    win.setBackgroundColor(glass ? '#00000000' : '#f8f8f3');
-  } catch {
-    win.setBackgroundColor('#f8f8f3');
-  }
+  win.setBackgroundColor('#00000000');
+  win.setIgnoreMouseEvents(state.preferences.widgetClickThrough === true, { forward: true });
+  // Focus remains available for keyboard navigation; click-through removes focus
+  // only until the explicit tray recovery command restores interaction.
+  win.setFocusable(state.preferences.widgetClickThrough !== true);
+  win.setSkipTaskbar(true);
+  win.setAlwaysOnTop(overlayLayer(state.preferences) === 'topmost');
 }
 function syncProjectsWidget() {
-  if (!state.preferences.widget || state.preferences.widgetProjects === false) {
+  if (state.preferences.widgetProjects === false) {
     if (projectsWidget) { projectsWidget.destroy(); projectsWidget = null; }
     return;
   }
   if (!projectsWidget) {
     const daily = safeBounds(state.preferences.widgetBounds);
     const bounds = safeBounds(state.preferences.projectsWidgetBounds || { ...daily, x: daily.x + daily.width + 20 });
-    const win = new BrowserWindow(options({ ...bounds, minWidth: 290, minHeight: 260, title: 'Munka projects', skipTaskbar: true, movable: true, resizable: true }));
-    projectsWidget = win;
-    secure(win);
-    win.loadFile(path.join(root, 'src/index.html'), { query: { widget: 'projects' } });
-    let timer;
-    const remember = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (!win.isDestroyed()) { state.preferences.projectsWidgetBounds = win.getBounds(); saveInternal(); }
-      }, 500);
-    };
-    win.on('moved', remember);
-    win.on('resized', remember);
-    win.on('close', () => {
-      state.preferences.projectsWidgetBounds = win.getBounds();
-      if (!quitting) state.preferences.widgetProjects = false;
-      projectsWidget = null;
-      clearTimeout(timer);
-      saveInternal();
-    });
-    win.on('closed', () => clearTimeout(timer));
+    projectsWidget = createOverlay('projects', bounds);
   }
-  projectsWidget.setAlwaysOnTop(!!state.preferences.alwaysOnTop);
   widgetMaterial(projectsWidget);
+}
+function setOverlayPreference(key, value) {
+  if (!capabilities.overlays) return;
+  if (accessMode === 'locked') { showMain(); return; }
+  state.preferences[key] = value;
+  if ((key === 'widget' || key === 'widgetProjects') && value) state.preferences.background = true;
+  syncWidget(); saveInternal();
+}
+function recoverOverlays() {
+  if (accessMode === 'locked') { showMain(); return false; }
+  state.preferences.widgetClickThrough = false;
+  if (!state.preferences.widget && !state.preferences.widgetProjects) state.preferences.widget = true;
+  state.preferences.background = true;
+  syncWidget();
+  for (const win of overlaySurfaces()) {
+    const surface = win === projectsWidget ? 'projects' : 'daily';
+    win.setBounds(safeBounds(win.getBounds()));
+    if (win.webContents.isCrashed()) win.reload();
+    win.showInactive(); rememberOverlay(win, surface);
+  }
+  nativeOverlayUpdate(); overlayController?.recover(); saveInternal();
+  return true;
+}
+function updateTray() {
+  if (!tray || tray.isDestroyed() || !state) return;
+  if (!capabilities.overlays) {
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Open Munka', click: () => showMain() },
+      { type: 'separator' },
+      { label: 'Quit Munka', click: () => { quitting = true; app.quit(); } },
+    ]));
+    return;
+  }
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Munka', click: () => showMain() },
+    { type: 'separator' },
+    { label: 'Daily tasks overlay', type: 'checkbox', checked: !!state.preferences.widget, click: item => setOverlayPreference('widget', item.checked) },
+    { label: 'Projects overlay', type: 'checkbox', checked: !!state.preferences.widgetProjects, click: item => setOverlayPreference('widgetProjects', item.checked) },
+    { label: 'Layer', submenu: [
+      { label: 'On desktop · behind apps', type: 'radio', checked: overlayLayer(state.preferences) === 'desktop', click: () => setOverlayPreference('widgetLayer', 'desktop') },
+      { label: 'Keep above apps', type: 'radio', checked: overlayLayer(state.preferences) === 'topmost', click: () => setOverlayPreference('widgetLayer', 'topmost') },
+    ] },
+    { label: 'Click through overlays', type: 'checkbox', checked: !!state.preferences.widgetClickThrough, click: item => setOverlayPreference('widgetClickThrough', item.checked) },
+    { label: 'Recover widgets · restore clicks and position', click: recoverOverlays },
+    { type: 'separator' },
+    { label: 'Quit Munka — stops overlays and reminders', click: () => { quitting = true; app.quit(); } },
+  ]));
 }
 function senderAllowed(e) {
   return (
@@ -274,6 +359,8 @@ function senderAllowed(e) {
 function handle(name, fn) {
   ipcMain.handle(name, async (e, ...args) => {
     if (!senderAllowed(e)) throw Error("Untrusted request");
+    if (accessMode === 'locked' && !['version','ready'].includes(name) && !(name === 'desktop' && args[0] === 'quit'))
+      throw Error('Sign in or choose Use locally to open your planner.');
     return fn(...args);
   });
 }
@@ -284,7 +371,7 @@ function wallpaperDisplay() {
   return display;
 }
 function wallpaperData() {
-  return wallpaperContent(state, new Date().toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' }));
+  return wallpaperContent(state, domain.dateKey());
 }
 async function renderWallpaper(file, display, content) {
   if (fs.statSync(file).size > 30 * 1024 * 1024) throw Error('Choose a background smaller than 30 MB.');
@@ -302,6 +389,8 @@ async function renderWallpaper(file, display, content) {
   } finally { w.destroy(); }
 }
 async function updateWallpaper() {
+  if (!capabilities.wallpaper) return;
+  if (accessMode === 'locked') return;
   if (!state.preferences.wallpaper || wallpaperBusy || !state.preferences.wallpaperBackground) return;
   wallpaperBusy = true;
   const generation = wallpaperGeneration;
@@ -334,10 +423,21 @@ app.whenReady().then(async () => {
   domain = await import(pathToFileURL(path.join(root, "src/domain.mjs")).href);
   store = path.join(app.getPath("userData"), "planner.json");
   fs.mkdirSync(path.dirname(store), { recursive: true });
+  // Retire credentials for the old sync and hosted-AI sign-ins. Planner records stay untouched.
+  for (const oldSession of ['session.enc', 'ai-session.enc']) {
+    try { fs.rmSync(path.join(app.getPath('userData'), oldSession), { force: true }); }
+    catch { startupLog('legacy-session-cleanup-unavailable', { file: oldSession }); }
+  }
   try {
-    state = fs.existsSync(store)
-      ? domain.validateBackup(JSON.parse(fs.readFileSync(store, "utf8")))
-      : domain.initialState();
+    const saved = fs.existsSync(store) ? JSON.parse(fs.readFileSync(store, 'utf8')) : null;
+    state = saved ? domain.validateBackup(saved) : domain.initialState();
+    if (saved && saved.preferences?.widgetOverlayVersion !== 1) {
+      // Older releases had one master widget switch: do not turn projects back
+      // on when someone deliberately switched the old master control off.
+      if (saved.preferences?.widget === false) state.preferences.widgetProjects = false;
+      state.preferences.widgetLayer = saved.preferences?.alwaysOnTop ? 'topmost' : 'desktop';
+    }
+    state.preferences.widgetOverlayVersion = 1;
   } catch (e) {
     dialog.showErrorBox(
       "Munka could not open your planner",
@@ -361,41 +461,138 @@ app.whenReady().then(async () => {
   backup();
   setInterval(backup, 3600000).unref();
   handle("load", () => state);
-  handle("version", () => ({ version: app.getVersion(), build: 'desktop-widgets-2026-09-10' }));
+  handle("version", () => ({ version: require('../package.json').version, build: capabilities.platform === 'darwin' ? 'Mac beta' : 'Desktop beta', platform: process.platform, capabilities, theme: state.preferences.theme, testProfile: !!process.env.MUNKA_TEST_DATA, authPanelTest: process.env.MUNKA_TEST_AUTH_PANEL === 'true' }));
+  const commitExtension = next => {
+    if (accessMode === 'locked') throw Error('Open your planner before saving changes.');
+    next = domain.validateBackup(next);
+    if (JSON.stringify(next).length > 20 * 1024 * 1024) throw Error('Planner exceeds 20 MB. Archive older data first.');
+    const before = state;
+    state = {...next, revision: state.revision + 1};
+    try { persist(); } catch(error) { state = before; throw error; }
+    broadcast(); syncWidget();
+  };
+  calendarService = require('./calendar-service.cjs').createCalendarService({
+    directory:app.getPath('userData'),safeStorage,getState:()=>state,commit:next=>{
+      if (accessMode !== 'account') throw Error('Sign in to refresh connected calendars.');
+      commitExtension(next);
+    },
+    clientIds:require('../package.json').calendarClientIds || {},openExternal:url=>shell.openExternal(url),
+  });
+  const accountConfig = require('../package.json').munkaAccount;
+  function changeAccess(mode) {
+    accessMode = mode;
+    if (mode === 'locked') {
+      aiService?.cancel();
+      if (main && !main.isDestroyed()) main.webContents.send('access-change', { mode });
+    }
+    syncWidget();
+  }
+  const accountService = require('./account-service.cjs').createAccountService({
+    url: accountConfig.url,
+    publishableKey: accountConfig.publishableKey,
+    file: path.join(app.getPath('userData'), 'munka-account.enc'),
+    safeStorage,
+    openExternal: url => shell.openExternal(url),
+    onSignedOut: () => { if (accessMode === 'account') changeAccess('locked'); },
+  });
+  async function requireAccount() {
+    if (accessMode !== 'account') throw Error('Sign in to your Munka account to use this feature.');
+    const verified = await accountService.status();
+    if (!verified.signedIn) { changeAccess('locked'); throw Error('Sign in again to continue.'); }
+  }
+  ipcMain.handle('account', async (event, action, data) => {
+    if (!senderAllowed(event) || event.sender !== main?.webContents)
+      return {ok:false,error:'Open the full planner to use Munka account.'};
+    if (!['status','providers','signIn','register','signOut','google','cancel','useLocal','lock'].includes(action))
+      return {ok:false,error:'Unknown account action.'};
+    try {
+      if (action === 'useLocal') { accountService.cancel(); changeAccess('local'); return {ok:true,value:{signedIn:false,mode:'local'}}; }
+      if (action === 'lock') { accountService.cancel(); changeAccess('locked'); return {ok:true,value:{signedIn:false,mode:'locked'}}; }
+      const value = await accountService[action](data);
+      if (['status','signIn','register','google'].includes(action) && value.signedIn) changeAccess('account');
+      if (action === 'status' && !value.signedIn && accessMode === 'account') changeAccess('locked');
+      if (action === 'signOut') changeAccess('locked');
+      return {ok:true,value:{...value,mode:accessMode}};
+    }
+    catch (error) { return {ok:false,error:error.message}; }
+  });
+  syllabusService = require('./syllabus-service.cjs').createSyllabusService({
+    directory:app.getPath('userData'),getState:()=>state,commit:commitExtension,
+    chooseFile:async()=>{const r=await dialog.showOpenDialog(main,{filters:[{name:'Syllabus or coursework',extensions:['pdf','docx','txt']}],properties:['openFile']});return r.canceled?null:r.filePaths[0];},
+  });
+  for (const [channel,service,allowed] of [['calendars',calendarService,['status','connect','refresh','disconnect','cancel']],['syllabus',syllabusService,['choose','add','source','undo','cancel']]]) {
+    ipcMain.handle(channel,async(event,action,data)=>{
+      if(!senderAllowed(event)||event.sender!==main?.webContents)return {ok:false,error:'Open the full planner to use this feature.'};
+      try {
+        if(!allowed.includes(action))throw Error('Unknown action.');
+        if (accessMode === 'locked') throw Error('Sign in or choose Use locally to open your planner.');
+        if (channel === 'calendars' && action !== 'cancel') await requireAccount();
+        const value=channel==='calendars' ? await service[action](data?.provider,data?.selected) : await service[action](data);
+        return {ok:true,value};
+      } catch(error){return {ok:false,error:error.message};}
+    });
+  }
+  const refreshConnectedCalendars = () => { if (accessMode === 'account') calendarService.refreshAll(); };
+  setInterval(refreshConnectedCalendars,15*60000).unref();
+  setTimeout(refreshConnectedCalendars,2000).unref();
+  powerMonitor.on('resume',refreshConnectedCalendars);
+  const aiSessionFile = path.join(app.getPath('userData'), 'ai-session.enc');
+  const legacyAI = !app.isPackaged && process.env.MUNKA_AI_LEGACY === 'true';
+  const createAI = legacyAI ? require('./ai-service.cjs').createAIService : require('./managed-ai-service.cjs').createManagedAIService;
+  const aiOptions = {
+    file: path.join(app.getPath('userData'), 'ai-settings.json'), safeStorage, getState: () => state,
+    url: (!app.isPackaged && process.env.MUNKA_AI_URL) || require('../package.json').munkaAIUrl || '',
+    getSession: () => {
+      try { return safeStorage.isEncryptionAvailable() && fs.existsSync(aiSessionFile)
+        ? JSON.parse(safeStorage.decryptString(fs.readFileSync(aiSessionFile))) : null; } catch { return null; }
+    },
+    saveSession: value => {
+      if (!safeStorage.isEncryptionAvailable()) throw Error('Windows encryption is unavailable. Sign-in cannot be saved.');
+      fs.writeFileSync(aiSessionFile + '.tmp', safeStorage.encryptString(JSON.stringify(value)));
+      fs.renameSync(aiSessionFile + '.tmp', aiSessionFile);
+    },
+    clearSession: () => { if (fs.existsSync(aiSessionFile)) fs.unlinkSync(aiSessionFile); },
+    appendTasks: drafts => {
+      if (accessMode !== 'account') throw Error('Sign in to save a Munka AI proposal.');
+      const previous = state;
+      const tasks = drafts.map(draft => domain.task({ ...draft, aiDrafted: true }));
+      state = { ...state, tasks: [...state.tasks, ...tasks], revision: state.revision + 1 };
+      try { persist(); } catch { state = previous; throw Error('The plan could not be saved. Nothing was added. Try again.'); }
+      // No automation execution or writes to any other entity through this path.
+      try { broadcast(); syncWidget(); } catch { /* Tasks are already durably committed. */ }
+      return { count: tasks.length, ids: tasks.map(t => t.id) };
+    },
+  };
+  aiService = createAI(aiOptions);
+  if (!legacyAI && !aiOptions.url) {
+    try {
+      aiService = await require('./owner-ai-service.cjs').createOwnerAIService({
+        directory:app.getPath('userData'), safeStorage, getState:aiOptions.getState, appendTasks:aiOptions.appendTasks,
+      }) || aiService;
+    } catch {
+      const fallbackStatus=aiService.status;
+      aiService.status=async()=>({...await fallbackStatus(),notice:'AI setup on this PC needs repair. Your planner and saved deadlines still work.'});
+      startupLog('owner-ai-setup-unavailable');
+    }
+  }
+  ipcMain.handle('ai', async (event, action, data) => {
+    if (!senderAllowed(event) || event.sender !== main?.webContents) throw Error('AI is available only in the main planner.');
+    if (!['status','configure','disconnect','propose','approve','cancel','deadlines'].includes(action) || typeof aiService[action] !== 'function') throw Error('Unknown AI action.');
+    try {
+      if (accessMode === 'locked') throw Error('Sign in or choose Use locally to open your planner.');
+      if (['configure','propose','approve'].includes(action)) await requireAccount();
+      if (action === 'status' && accessMode === 'local') return {ok:true,value:{managed:true,provider:'managed',signedIn:false,configured:false,available:false,limit:3,maxTasks:5,used:0,remaining:null,notice:'Sign in to use Munka AI. Saved deadline summaries work locally.'}};
+      return {ok:true, value:await aiService[action](data)};
+    }
+    catch (error) { return {ok:false, error:error.message}; }
+  });
   handle("ready", () => {
     mainRendererReady = true;
     startupLog("main-renderer-ready");
+    if (accessMode === 'locked') return;
     const id = pendingTask;
     pendingTask = undefined;
     return id;
-  });
-  handle("session", async (action, data) => {
-    const file = path.join(app.getPath("userData"), "session.enc");
-    if (action === "clear") {
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-      return true;
-    }
-    if (action === "save") {
-      if (!safeStorage.isEncryptionAvailable()) return false;
-      if (
-        !data ||
-        typeof data.token !== "string" ||
-        typeof data.url !== "string"
-      )
-        throw Error("Invalid session");
-      fs.writeFileSync(file, safeStorage.encryptString(JSON.stringify(data)));
-      return true;
-    }
-    if (action === "load") {
-      try {
-        return fs.existsSync(file) && safeStorage.isEncryptionAvailable()
-          ? JSON.parse(safeStorage.decryptString(fs.readFileSync(file)))
-          : null;
-      } catch {
-        return null;
-      }
-    }
-    throw Error("Unknown session action");
   });
   handle("save", (next, revision) => {
     if (revision !== state.revision)
@@ -405,6 +602,11 @@ app.whenReady().then(async () => {
     next = domain.validateBackup(next);
     if (JSON.stringify(next).length > 20 * 1024 * 1024)
       throw Error("Planner exceeds 20 MB. Export and archive older data.");
+    // OS login registration only changes through the dedicated verified action.
+    next.events = [...next.events.filter(e => !e.externalCalendar), ...state.events.filter(e => e.externalCalendar)];
+    next.preferences.launchAtLogin = state.preferences.launchAtLogin === true;
+    next.preferences.widgetOverlayVersion = 1;
+    if ((!state.preferences.widget && next.preferences.widget) || (!state.preferences.widgetProjects && next.preferences.widgetProjects)) next.preferences.background = true;
     state = { ...next, revision: state.revision + 1 };
     persist();
     broadcast();
@@ -438,13 +640,71 @@ app.whenReady().then(async () => {
     return { name: path.basename(file), text: fs.readFileSync(file, "utf8") };
   });
   handle("desktop", async (action, value) => {
+    if (!capabilities.overlays && !['displays', 'open', 'test-notification'].includes(action))
+      throw Error('This desktop integration is not available in the core Mac beta.');
+    if (action === 'widget-hit-test') {
+      if (!value || !['daily', 'projects'].includes(value.surface) || typeof value.interactive !== 'boolean') throw Error('Invalid overlay hit test.');
+      const win = value.surface === 'projects' ? projectsWidget : widget;
+      if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(state.preferences.widgetClickThrough === true || !value.interactive, { forward: true });
+      return true;
+    }
+    if (action === 'widget-adjust') {
+      if (!value || !['daily', 'projects'].includes(value.surface) || !['move', 'resize'].includes(value.mode) ||
+        ![value.dx, value.dy].every(n => Number.isInteger(n) && Math.abs(n) <= 10)) throw Error('Invalid overlay adjustment.');
+      const win = value.surface === 'projects' ? projectsWidget : widget;
+      if (!win || win.isDestroyed()) throw Error('This overlay is turned off.');
+      if (state.preferences.widgetClickThrough) throw Error('Turn off click through before adjusting.');
+      const bounds = win.getBounds();
+      if (value.mode === 'move') { bounds.x += value.dx; bounds.y += value.dy; }
+      else { bounds.width += value.dx; bounds.height += value.dy; }
+      win.setBounds(safeBounds(bounds));
+      rememberOverlay(win, value.surface);
+      return true;
+    }
+    if (action === 'widget-recover') return recoverOverlays();
+    if (action === 'widget-off') {
+      if (!['daily', 'projects'].includes(value)) throw Error('Choose a valid overlay.');
+      setOverlayPreference(value === 'projects' ? 'widgetProjects' : 'widget', false);
+      return true;
+    }
+    if (action === 'overlay-status') return { ready: overlayController?.ready === true, layer: overlayLayer(state.preferences), windows: overlayController?.windows || [], error: state.preferences.overlayError || '' };
+    if (action === 'launch-at-login') {
+      if (typeof value !== 'boolean') throw Error('Choose whether Munka should start with Windows.');
+      if (process.platform !== 'win32' || !app.isPackaged || process.env.MUNKA_TEST_DATA) throw Error('Start with Windows is available in the installed Windows app.');
+      const login = { path: process.execPath, args: ['--background'] };
+      app.setLoginItemSettings({ ...login, openAtLogin: value, enabled: value });
+      const actual = app.getLoginItemSettings(login).openAtLogin;
+      if (actual !== value) throw Error('Windows did not save the startup setting. Check Startup Apps in Windows Settings.');
+      state.preferences.launchAtLogin = actual;
+      saveInternal();
+      return actual;
+    }
+    if (['widget-resize-start', 'widget-resize-update', 'widget-resize-end'].includes(action)) {
+      if (!value || !['daily', 'projects'].includes(value.surface)) throw Error('Choose a valid overlay.');
+      const win = value.surface === 'projects' ? projectsWidget : widget;
+      if (!win || win.isDestroyed()) throw Error('This overlay is turned off.');
+      if (action === 'widget-resize-start') {
+        if (!EDGES.has(value.edge)) throw Error('Choose a valid resize edge.');
+        if (state.preferences.widgetClickThrough) throw Error('Turn off click through before resizing.');
+        const bounds = safeBounds(win.getBounds());
+        overlayResize.set(value.surface, { win, bounds, cursor: screen.getCursorScreenPoint(), edge: value.edge, area: screen.getDisplayMatching(bounds).workArea, at: Date.now() });
+        return true;
+      }
+      const resize = overlayResize.get(value.surface);
+      if (!resize || resize.win !== win) return false;
+      if (action === 'widget-resize-end' || Date.now() - resize.at > 30000) {
+        overlayResize.delete(value.surface); rememberOverlay(win, value.surface); return true;
+      }
+      win.setBounds(resizedOverlay(resize, screen.getCursorScreenPoint(), resize.edge, resize.area));
+      return true;
+    }
     if (action === 'widget-size') {
       if (!value || !['daily', 'projects'].includes(value.surface) || !['compact', 'roomy'].includes(value.size)) throw Error('Invalid widget size');
       const isProject = value.surface === 'projects';
       state.preferences[isProject ? 'projectsWidgetSize' : 'widgetSize'] = value.size;
       const win = isProject ? projectsWidget : widget;
       const current = win?.getBounds() || safeBounds(state.preferences[isProject ? 'projectsWidgetBounds' : 'widgetBounds']);
-      const size = value.size === 'roomy' ? { width: 440, height: 660 } : { width: 360, height: 480 };
+      const size = value.size === 'roomy' ? { width: 440, height: isProject ? 480 : 620 } : { width: 360, height: isProject ? 320 : 480 };
       const bounds = safeBounds({ ...current, ...size });
       state.preferences[isProject ? 'projectsWidgetBounds' : 'widgetBounds'] = bounds;
       if (win) win.setBounds(bounds);
@@ -546,7 +806,7 @@ app.whenReady().then(async () => {
     }
     if (action === "test-notification") {
       if (!Notification.isSupported())
-        throw Error("Windows notifications are unavailable.");
+        throw Error("System notifications are unavailable.");
       new Notification({
         title: "Munka reminders",
         body: "You’re ready to stay on track.",
@@ -568,28 +828,22 @@ app.whenReady().then(async () => {
       .resize({ width: 24, height: 24 }),
   );
   tray.setToolTip("Munka · Your day, in sight");
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: "Open Munka", click: () => showMain() },
-      {
-        label: "Quit Munka — stops reminders",
-        click: () => {
-          quitting = true;
-          app.quit();
-        },
-      },
-    ]),
-  );
+  updateTray();
   tray.on("double-click", () => showMain());
   screen.on("display-removed", () => {
-    if (widget) widget.setBounds(safeBounds(widget.getBounds()));
-    if (projectsWidget) projectsWidget.setBounds(safeBounds(projectsWidget.getBounds()));
+    overlayResize.clear();
+    if (widget) rememberOverlay(widget, 'daily');
+    if (projectsWidget) rememberOverlay(projectsWidget, 'projects');
+    nativeOverlayUpdate();
   });
   screen.on('display-metrics-changed', () => {
-    if (widget) widget.setBounds(safeBounds(widget.getBounds()));
-    if (projectsWidget) projectsWidget.setBounds(safeBounds(projectsWidget.getBounds()));
+    overlayResize.clear();
+    if (widget) rememberOverlay(widget, 'daily');
+    if (projectsWidget) rememberOverlay(projectsWidget, 'projects');
+    nativeOverlayUpdate();
   });
   setInterval(() => {
+    if (accessMode === 'locked') return;
     const now = new Date();
     const beforeRules = state.logs.length;
     const due = state.tasks.filter(
@@ -630,10 +884,14 @@ app.whenReady().then(async () => {
   setInterval(updateWallpaper, 60000).unref();
 });
 app.on("window-all-closed", () => {
-  if (!state?.preferences.background) app.quit();
+  if (process.platform !== 'darwin' && !stayInBackground(state?.preferences)) app.quit();
 });
+app.on('activate', () => { if (app.isReady() && state) showMain(); });
 app.on("before-quit", () => {
   quitting = true;
+  aiService?.cancel();
+  calendarService?.cancel();
+  syllabusService?.cancel();
+  overlayController?.stop();
 });
-
 
