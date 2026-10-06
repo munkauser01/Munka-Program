@@ -4,7 +4,7 @@ Planner for school and daily life. Your day, in sight.
 
 ## Mac and mobile beta — 0.12.0-beta.1
 
-The new source adds Mac build targets and an installable mobile web app. Installed Windows remains 0.11.7. Run `pnpm build:mobile` then `pnpm mobile` for the local phone-layout preview. Phone installation needs an HTTPS-hosted preview. On a Mac, follow the [beta guide](outputs/Mac-Mobile-Beta-0.12.0.md) to build for Apple Silicon or Intel. The Mac beta is unsigned and not notarized; its GitHub build/native checks determine artifact readiness.
+The new source adds Mac build targets and an installable mobile web app. Installed Windows remains 0.11.7. Run `pnpm build:mobile` then `pnpm mobile` for the local phone-layout preview. Phone installation needs an HTTPS-hosted preview. Both Apple Silicon and Intel ZIP/DMG builds passed source and actual packaged-app smoke checks on macOS; downloads and verification are in the [beta guide](outputs/Mac-Mobile-Beta-0.12.0.md). The Mac beta has no Developer ID signing or notarization; physical installation acceptance is pending.
 
 Mobile plans are device-local, with separate local/account storage and memory-only Supabase sessions. Offline shell/task saving, backup transfer and touch navigation are implemented. Sync/sharing, mobile AI/provider connections and closed-app alerts are pending. [Draft beta PR](https://github.com/munkauser01/Munka-Program/pull/1).
 

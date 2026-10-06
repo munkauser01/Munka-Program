@@ -1,0 +1,55 @@
+{
+  "version": "0.12.0-beta.1",
+  "sourceCommit": "1805a3353b1ddd49fb2104a826c0badc783d8d35",
+  "run": "https://github.com/munkauser01/Munka-Program/actions/runs/37400603373",
+  "developerIdSigned": false,
+  "notarized": false,
+  "verifications": [
+    {
+      "arch": "arm64",
+      "passed": true,
+      "packagedApp": true,
+      "version": "0.12.0-beta.1",
+      "checks": [
+        "actual packaged executable launches",
+        "login/local gate",
+        "task creation and save",
+        "calendar",
+        "Mac capabilities/settings"
+      ],
+      "liveAuthentication": false,
+      "physicalMacValidated": false
+    },
+    {
+      "arch": "x64",
+      "passed": true,
+      "packagedApp": true,
+      "version": "0.12.0-beta.1",
+      "checks": [
+        "actual packaged executable launches",
+        "login/local gate",
+        "task creation and save",
+        "calendar",
+        "Mac capabilities/settings"
+      ],
+      "liveAuthentication": false,
+      "physicalMacValidated": false
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "Munka-mac-beta-x64",
+      "bytes": 312879631,
+      "sha256": "b6bbe779cec38077b1e95b823472232fed447df09ceb2d0a18ae0d01f3727134",
+      "expiresAt": "2026-10-20T01:45:47Z",
+      "url": "https://github.com/munkauser01/Munka-Program/actions/runs/37400603373/artifacts/11385401038"
+    },
+    {
+      "name": "Munka-mac-beta-arm64",
+      "bytes": 303399197,
+      "sha256": "792f529751d33ae551e5a60ecba480bd341e8198a2b9453f30c2d64aef22d49f",
+      "expiresAt": "2026-10-20T01:44:17Z",
+      "url": "https://github.com/munkauser01/Munka-Program/actions/runs/37400603373/artifacts/11384962236"
+    }
+  ]
+}

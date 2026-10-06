@@ -27,6 +27,23 @@ On iPhone, open the hosted URL in Safari, use Share and Add to Home Screen. On A
 
 ## Build Mac
 
+### Download and test
+
+Both architectures passed [the Mac CI build](https://github.com/munkauser01/Munka-Program/actions/runs/37400603373), including launching each actual packaged app and saving a task. Sign in to GitHub to download the private artifacts:
+
+| Your Mac | Beta archive |
+| --- | --- |
+| Apple Silicon (M1 or later) | [Apple Silicon ZIP/DMG bundle](https://github.com/munkauser01/Munka-Program/actions/runs/37400603373/artifacts/11384962236) |
+| Intel | [Intel ZIP/DMG bundle](https://github.com/munkauser01/Munka-Program/actions/runs/37400603373/artifacts/11385401038) |
+
+The outer artifact ZIP contains the app ZIP, DMG, verification and checksum files. Extract it, open the DMG and copy Munka to Applications. These artifacts expire October 19, 2026 in Eastern time (October 20 UTC); save a copy before then. Builds can be regenerated from the beta branch. Choose the architecture shown by About This Mac.
+
+This beta has no Developer ID signature or notarization. macOS may block it; Apple's [per-app opening instructions](https://support.apple.com/en-us/102445) describe Privacy & Security → Open Anyway. Do not change system-wide security settings. Physical installation/Gatekeeper acceptance has not been tested.
+
+On your Mac or hosted phone beta, start with Use locally, create/edit a task, open Calendar, export a backup, close/reopen and confirm the task remains. On a phone, load online once, then test an offline reopen and task save. Try email signup/sign-in separately; real email delivery and confirmation still need testing. Windows JSON backups can be imported through Settings, but transfer is manual.
+
+### Build from source
+
 Install Node 24 and pnpm 11.19.0 on a matching Mac, then:
 
 ```sh
@@ -47,12 +64,12 @@ The included `.github/workflows/mac-beta.yml` uses matching GitHub macOS runners
 - Chrome phone checks pass: signup confirmation gate, task capture/editor save, all calendar modes, secondary destinations, account storage isolation and offline reload/new-task persistence.
 - Phone, small phone, landscape, tablet, desktop and dark-mode layouts checked. Native Windows navigation/account regression suite passes.
 - Signup/login browser tests use intercepted synthetic Supabase responses, not the owner's password or a new real account. Delivery, confirmation returns and real-provider login still need acceptance.
-- Source-app smoke checks have passed on actual Apple Silicon and Intel macOS runners. The first packaging attempt revealed a too-small icon; packaging now generates a 512px icon from the existing artwork. Installer and packaged-app validation results are still pending the repaired build. Physical iPhone/Android Safari/Chrome acceptance is also pending.
+- Source and actual packaged-app smoke checks passed on both Apple Silicon and Intel macOS runners. ZIP/DMG artifacts were uploaded successfully; evidence is in `outputs/Mac-Beta-0.12.0-verification.json`. Physical Mac installation/Gatekeeper and iPhone/Android Safari/Chrome acceptance are pending.
 - Mobile AI, live provider calendars, syllabus document extraction, closed-app alerts and desktop overlays are unavailable in this beta. Cloud sync and shared calendars remain unfinished across platforms.
 - Existing three domain regressions remain outside this platform pass; the prior broad suite was 106/109. No clean security-audit claim is made.
 
 ## Next
 
-Build and validate both Mac artifacts; choose an HTTPS preview destination for mobile; test on physical phones and a Mac. Then complete signup/recovery/provider setup and cross-device sync before widening the beta.
+Approve the prepared Vercel mobile preview, then test on physical phones and a Mac. Complete signup/recovery/provider setup, the three existing domain regressions, signing/notarization and cross-device sync before widening the beta.
 
 References: [Electron builder macOS](https://www.electron.build/v26/docs/mac/), [Supabase email sign-in](https://supabase.com/docs/reference/javascript/auth-signinwithpassword), [MDN offline PWA behavior](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation), [GitHub macOS runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
