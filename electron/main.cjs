@@ -479,7 +479,18 @@ app.whenReady().then(async () => {
     clientIds:require('../package.json').calendarClientIds || {},openExternal:url=>shell.openExternal(url),
   });
   const accountConfig = require('../package.json').munkaAccount;
-  function changeAccess(mode) {
+  let plannerAccountId = null;
+  const localPlannerStore = store;
+  async function changeAccess(mode, accountId = null) {
+    const nextId = mode === 'account' ? accountId : null;
+    if (mode === 'account' && !/^[a-f0-9-]{36}$/i.test(nextId || '')) throw Error('The account identity is invalid.');
+    if (mode !== 'locked' && nextId !== plannerAccountId) {
+      const nextStore = nextId ? path.join(app.getPath('userData'), 'planner-account-' + nextId + '.json') : localPlannerStore;
+      const saved = fs.existsSync(nextStore) ? JSON.parse(fs.readFileSync(nextStore,'utf8')) : null;
+      const nextState = saved ? domain.validateBackup(saved) : domain.initialState();
+      store = nextStore; state = nextState; plannerAccountId = nextId;
+      broadcast();
+    }
     accessMode = mode;
     if (mode === 'locked') {
       aiService?.cancel();
@@ -493,7 +504,7 @@ app.whenReady().then(async () => {
     file: path.join(app.getPath('userData'), 'munka-account.enc'),
     safeStorage,
     openExternal: url => shell.openExternal(url),
-    onSignedOut: () => { if (accessMode === 'account') changeAccess('locked'); },
+    onSignedOut: () => { if (accessMode === 'account') changeAccess('locked').catch(error=>startupLog('account-lock-failed')); },
   });
   async function requireAccount() {
     if (accessMode !== 'account') throw Error('Sign in to your Munka account to use this feature.');
@@ -506,15 +517,21 @@ app.whenReady().then(async () => {
     if (!['status','providers','signIn','register','signOut','google','cancel','useLocal','lock'].includes(action))
       return {ok:false,error:'Unknown account action.'};
     try {
-      if (action === 'useLocal') { accountService.cancel(); changeAccess('local'); return {ok:true,value:{signedIn:false,mode:'local'}}; }
-      if (action === 'lock') { accountService.cancel(); changeAccess('locked'); return {ok:true,value:{signedIn:false,mode:'locked'}}; }
+      if (action === 'useLocal') { accountService.cancel(); await changeAccess('local'); return {ok:true,value:{signedIn:false,mode:'local'}}; }
+      if (action === 'lock') { accountService.cancel(); await changeAccess('locked'); return {ok:true,value:{signedIn:false,mode:'locked'}}; }
       const value = await accountService[action](data);
-      if (['status','signIn','register','google'].includes(action) && value.signedIn) changeAccess('account');
-      if (action === 'status' && !value.signedIn && accessMode === 'account') changeAccess('locked');
-      if (action === 'signOut') changeAccess('locked');
+      if (['status','signIn','register','google'].includes(action) && value.signedIn) await changeAccess('account',value.id);
+      if (action === 'status' && !value.signedIn && accessMode === 'account') await changeAccess('locked');
+      if (action === 'signOut') await changeAccess('locked');
       return {ok:true,value:{...value,mode:accessMode}};
     }
     catch (error) { return {ok:false,error:error.message}; }
+  });
+  handle('local-planner', () => fs.existsSync(localPlannerStore) ? domain.validateBackup(JSON.parse(fs.readFileSync(localPlannerStore,'utf8'))) : domain.initialState());
+  ipcMain.handle('cloud', async (event,action,data,user) => {
+    if(!senderAllowed(event)||event.sender!==main?.webContents||accessMode!=='account')return {ok:false,error:'Sign in in the full planner to sync.'};
+    try{return {ok:true,value:await accountService.cloud(action,data,user)};}
+    catch(error){return {ok:false,error:error.message,code:error.code};}
   });
   syllabusService = require('./syllabus-service.cjs').createSyllabusService({
     directory:app.getPath('userData'),getState:()=>state,commit:commitExtension,
@@ -594,7 +611,9 @@ app.whenReady().then(async () => {
     pendingTask = undefined;
     return id;
   });
-  handle("save", (next, revision) => {
+  handle("save", (next, revision, expectedAccount) => {
+    if(expectedAccount!==undefined && expectedAccount!==(accessMode==='account'?plannerAccountId:null))
+      throw Error('Your account changed. Reopen the planner before saving.');
     if (revision !== state.revision)
       throw Error(
         "Your planner changed in another window. Your view has refreshed; please try again.",
@@ -607,8 +626,9 @@ app.whenReady().then(async () => {
     next.preferences.launchAtLogin = state.preferences.launchAtLogin === true;
     next.preferences.widgetOverlayVersion = 1;
     if ((!state.preferences.widget && next.preferences.widget) || (!state.preferences.widgetProjects && next.preferences.widgetProjects)) next.preferences.background = true;
+    const previous = state;
     state = { ...next, revision: state.revision + 1 };
-    persist();
+    try { persist(); } catch(error) { state = previous; throw error; }
     broadcast();
     syncWidget();
     clearTimeout(wallpaperTimer);

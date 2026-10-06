@@ -1,3 +1,4 @@
+import { openProductGuide } from './product-guide.mjs';
 const profiles = {
   college: {
     name: "College",
@@ -126,5 +127,8 @@ export function openOnboarding({
         }),
     );
   }
-  first();
+  openProductGuide({drawer, closeDrawer, onComplete: first, onSkip: async () => {
+    getState().preferences.onboardingVersion = 1;
+    if (await save()) closeDrawer();
+  }});
 }

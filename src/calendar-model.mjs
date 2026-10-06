@@ -41,7 +41,8 @@ export function calendarItems(state, days, { showDone = true, source = 'all', fo
     for (const t of active) byDay.get(t.date)?.tasks.push(t);
   }
   if (source !== 'tasks') for (const event of state.events) {
-    if (source !== 'all' && source !== (event.source || 'munka')) continue;
+    if ((state.preferences.hiddenSharedCalendars || []).includes(event._sync?.space)) continue;
+    if(source.startsWith('shared:')) { if(event._sync?.space!==source.slice(7))continue; } else if (source !== 'all' && source !== (event.source || 'munka')) continue;
     if (!matches(event.taskId ? taskIndex.get(event.taskId) || event : event)) continue;
     if (event.allDay) {
       const start = event.start.slice(0, 10), end = event.end?.slice(0, 10) || addDays(start, 1);
@@ -79,6 +80,7 @@ export function moveCalendarItem(state, type, id, day, fromDay) {
   if (!['task', 'event'].includes(type) || !validDate(day)) throw Error('Choose a valid destination date.');
   const item = state[type === 'task' ? 'tasks' : 'events'].find(x => x.id === id);
   if (!item) throw Error('This item no longer exists.');
+  if(item._sync?.space)throw Error('Open the shared event to change its dates.');
   if (item.externalCalendar || item._sync?.role === 'viewer') throw Error('This shared item is read-only.');
   const fields = type === 'task' ? ['date', 'reminder', 'remindedAt'] : ['start', 'end'];
   const before = Object.fromEntries(fields.map(key => [key, item[key]]));

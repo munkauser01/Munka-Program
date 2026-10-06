@@ -51,6 +51,11 @@ test('registration confirmation never unlocks planner early',async()=>{
   const {bridge}=fixture();const result=await bridge.account('register',{email:'alice@example.test',password:'test-only-password'});
   assert.equal(result.confirmationRequired,true);await assert.rejects(bridge.load(),/Sign in/);
 });
+test('a stale account identity cannot save into the next account',async()=>{
+ const f=fixture();await f.bridge.account('signIn',{email:'alice@example.test',password:'test-only-password'});const old=await f.bridge.load();old.tasks.push(task({title:'Alice draft'}));
+ await f.bridge.account('signOut');f.setUser({id:'bob',email:'bob@example.test'});await f.bridge.account('signIn',{email:'bob@example.test',password:'test-only-password'});
+ await assert.rejects(f.bridge.save(old,0,'alice'),/account changed/);assert.equal((await f.bridge.load()).tasks.length,0);
+});
 test('invalid or unverified sign-in does not unlock planner',async()=>{
   const {bridge,setUser}=fixture();
   await assert.rejects(bridge.account('signIn',{email:'alice@example.test',password:'incorrect'}),/Invalid/);

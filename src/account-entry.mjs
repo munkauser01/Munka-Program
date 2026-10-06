@@ -33,7 +33,7 @@ export function mountAccountEntry({ host, bridge, version, onEnter, notice = '',
           <p>${bridge.capabilities?.platform === 'web' ? 'Tasks, calendar, courses, projects, habits, imports and backups work locally. AI, live calendar connections and background alerts are not available in this mobile beta.' : 'Tasks, calendar, imports and backups work locally. AI and connected calendars require sign-in.'}</p>
           <button type="button" id="munka-local">${returning ? 'Return to local planner' : 'Use locally'}</button>
         </section>
-        <footer class="entry-about"><p class="entry-data-note">Cloud sync and shared calendars are coming later.</p><span class="entry-version">Munka ${escape(version)}</span></footer>
+        <footer class="entry-about"><p class="entry-data-note">Sign in for shared calendars and optional sync across devices.</p><span class="entry-version">Munka ${escape(version)}</span></footer>
       </div>
     </main>`;
     host.querySelector('#entry-switch').onclick = () => {

@@ -18,11 +18,14 @@ import { openDayPlan, workloadSummary } from './workload-dialog.mjs';
 import { accountMenu } from './account-menu.mjs';
 import { icon } from './icons.mjs';
 import { createBrowserBridge } from './browser-bridge.mjs';
+import { createCloudSync } from './cloud-sync.mjs';
+import { sharingDialogs } from './sharing-dialogs.mjs';
 import { platformCapabilities } from './platform.mjs';
 import { mobileNavigation, moreView, bindMobile, registerMobile } from './mobile.mjs';
 import { taskForm } from './task-form.mjs';
 import { mountAccountEntry } from './account-entry.mjs';
 import { openOnboarding } from './onboarding.mjs';
+import { openProductGuide } from './product-guide.mjs';
 import { openSyllabus } from './syllabus-dialog.mjs';
 import { openCalendarConnections } from './calendar-connections.mjs';
 import { effort } from './workload.mjs';
@@ -103,7 +106,7 @@ let state,
   displays = [],
   accountStatus = null;
 let accessMode = 'locked', cleanupEntry = null, accountReturn = null;
-let appVersion = { version: '0.12.0-beta.1', build: 'Mobile web beta' };
+let appVersion = { version: '0.12.0-beta.2', build: 'Mobile web beta' };
 let capabilities = platformCapabilities(window.munka ? 'win32' : 'web');
 const isWidget = new URLSearchParams(location.search).has("widget");
 const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
@@ -115,6 +118,8 @@ import { calendarActions } from './calendar-dialogs.mjs';
 import { aiActions } from './ai-dialogs.mjs';
 import { calendarColors, validCalendarColor } from './calendar-colors.mjs';
 const bridge = window.munka || createBrowserBridge();
+const cloud = createCloudSync({bridge,onStatus:status=>{const el=$('#cloud-sync-status');if(el)el.textContent=status.message;}});
+const sharing = sharingDialogs({...extensionTools(),cloud});
 function toast(message, action) {
   const el = $("#toast");
   el.innerHTML = `<span>${esc(message)}</span>${action ? '<button id="toast-action">Undo</button>' : ""}`;
@@ -128,8 +133,9 @@ function toast(message, action) {
 }
 async function save() {
   try {
-    state = await bridge.save(state, state.revision);
+    state = await bridge.save(state, state.revision, isWidget ? undefined : accessMode==='account' ? accountStatus.id : null);
     render();
+    cloud.changed();
     return true;
   } catch (e) {
     state = await bridge.load();
@@ -225,7 +231,8 @@ function taskView() {
   );
 }
 function calendarView() {
-  return renderCalendar({ state, date: calendarDate, mode: calendarMode, showDone: calendarShowDone, source: calendarSource, focus: calendarFocus, esc, icon });
+  const visibleState={...state,events:state.events.filter(event=>!(state.preferences.hiddenSharedCalendars||[]).includes(event._sync?.space))};
+  return renderCalendar({ state:visibleState, date: calendarDate, mode: calendarMode, showDone: calendarShowDone, source: calendarSource, focus: calendarFocus, sharedCalendars:cloud.getStatus().calendars, esc, icon });
 }
 function extensionTools() {return {bridge,getState:()=>state,save,drawer,field,select,esc,closeDrawer,toast,refresh:async()=>{state=await bridge.load();render();}};}
 function planPrompt(text='') {if(accessMode !== 'account') return munkaAccountPanel('Sign in to use Munka Assistant. Your draft will be kept.', { assistantPrompt: text }); return aiActions(extensionTools()).open(text).catch(error=>toast(error.message));}
@@ -325,9 +332,10 @@ function settingsView() {
   return heading('Settings', 'Make Munka fit the way you work.', null) + `
     <div class="settings">
       <h2 >Munka account</h2>
-      <p class="muted small">AI and connected calendars require sign-in. Your planner is saved on this device; cloud sync and sharing are coming later.</p>
+      <p class="muted small">Sign in to sync your personal planner across devices and share selected calendars. Local plans stay private until you choose to copy and sync them.</p>
       <p role="status">${accountStatus?.signedIn ? `Signed in as ${esc(accountStatus.email)}` : 'Using Munka locally'}</p>
-      <div class="actions"><button data-action="munka-account">${accountStatus?.signedIn ? 'Account details' : 'Sign in or create account'}</button>${accountStatus?.signedIn ? '<button data-action="munka-signout">Sign out</button>' : ''}</div>
+      <div class="actions"><button data-action="munka-account">${accountStatus?.signedIn ? 'Account details' : 'Sign in or create account'}</button>${accountStatus?.signedIn ? '<button data-action="munka-switch-account">Switch account</button><button data-action="munka-signout">Sign out</button>' : ''}<button data-action="product-guide">Take a quick tour</button></div>
+      <h2 class="section-block">Sync & shared calendars</h2><p id="cloud-sync-status" role="status">${esc(cloud.getStatus().message)}</p><div class="actions"><button data-action="account-sync">Sync across devices</button><button data-action="shared-calendars">Shared calendars & invitations</button></div>
       <h2 class="section-block">Your setup</h2>
       <div class="setting"><div><h3>Make Munka yours</h3><p>Adjust your planning focus and desktop preferences.</p></div><button data-action="personalize">Personalize Munka</button></div>
       ${capabilities.connections ? '<div class="setting"><div><h3>Google & Outlook</h3><p>Bring selected calendars into your planner.</p></div><button data-action="connections">Connected calendars</button></div>' : ''}
@@ -677,6 +685,7 @@ function editCollection(kind, id) {
 }
 function editEvent(id, taskId) {
   let event = state.events.find((e) => e.id === id);
+  if(event?._sync?.space)return sharing.editEvent(event);
   if(event?.externalCalendar) {drawer('Connected calendar event',`<h3>${esc(event.title)}</h3><p>${esc(prettyDate(event.start.slice(0,10)))}</p><p>${esc(event.start)} – ${esc(event.end)}</p><p>${esc(event.location || '')}</p><p class="muted">Read-only from ${event.source==='google'?'Google Calendar':'Outlook'}. Edit the original event there; Munka refreshes automatically while running.</p>`);return;}
   const originalEvent = event ? JSON.stringify(event) : '';
   const
@@ -969,6 +978,8 @@ async function action(a) {
       case "personalize": return openOnboarding(extensionTools());
       case "syllabus": return openSyllabus(extensionTools());
       case "connections": if(accessMode !== 'account') return munkaAccountPanel('Sign in to connect Google or Outlook calendars.'); return openCalendarConnections(extensionTools()).catch(error=>toast(error.message));
+      case "account-sync": if(accessMode!=='account')return munkaAccountPanel('Sign in to sync your planner across devices.');return sharing.syncPanel();
+      case "shared-calendars": if(accessMode!=='account')return munkaAccountPanel('Sign in to view invitations or share a calendar.');return sharing.calendars();
       case "capture-plan": return planPrompt(document.querySelector('#quick-add [name=title]')?.value || '');
       case "day-plan":
         return openDayPlan({getState:()=>state,save,drawer,field,esc,closeDrawer,toast});
@@ -1065,7 +1076,11 @@ async function action(a) {
         return;
       }
       case "munka-signout":
-        try { await bridge.account('signOut'); } catch(error) { toast(error.message); } return;
+        return leaveAccount(false);
+      case "munka-switch-account":
+        return leaveAccount(true);
+      case "product-guide":
+        return openProductGuide(extensionTools());
       case "munka-account":
         return munkaAccountPanel();
     }
@@ -1108,6 +1123,7 @@ function bind() {
         if (name === 'batch') batchTasks();
         if (name === 'plan-prompt') planPrompt(document.querySelector('#calendar-quick-add [name=title]')?.value || '');
         if (name === 'connections') action('connections');
+        if (name === 'shared') action('shared-calendars');
         if (name === 'import') actions.importSetup();
         if (name === 'details') editTask(null, Object.fromEntries(new FormData($('#calendar-quick-add'))));
       },
@@ -1367,7 +1383,30 @@ function captureAccountReturn(intent = {}) {
     ...intent,
   };
 }
+let leavingAccount = false;
+async function leaveAccount(switching) {
+  if (leavingAccount) return;
+  leavingAccount = true;
+  cloud.stop(); closeDrawer(); accountReturn = null;
+  accessMode = 'locked'; state = null; accountStatus = null;
+  cleanupEntry?.(); cleanupEntry = null;
+  const host = $('#app'); host.inert = true;
+  // Private planner content is removed immediately. Animate a neutral shell only.
+  host.innerHTML = `<main class="account-entry" aria-busy="true"><div class="entry-form-wrap account-exit" role="status"><h1>${switching ? 'Switching accounts…' : 'Signing out…'}</h1><p>Your plans are saved.</p></div></main>`;
+  let notice = switching ? 'Sign in with another account. Each account has its own planner.' : 'You’re signed out. Sign in or use your local planner.';
+  try {
+    const motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? Promise.resolve() : new Promise(resolve => setTimeout(resolve,160));
+    await Promise.all([bridge.account('signOut'),motion]);
+  } catch(error) {
+    try { await bridge.account('lock'); } catch { /* The renderer remains locked. */ }
+    notice = `Your planner is locked. ${error.message}`;
+  } finally {
+    leavingAccount = false; host.inert = false; showAccountEntry(notice);
+    $('#entry-email')?.focus();
+  }
+}
 function showAccountEntry(notice = '') {
+  cloud.stop();
   accessMode = 'locked'; closeDrawer(); state = null;
   cleanupEntry?.();
   cleanupEntry = mountAccountEntry({host: $('#app'), bridge, version: appVersion.version, notice, returning: !!accountReturn, onEnter: activatePlanner});
@@ -1378,7 +1417,17 @@ async function activatePlanner(status) {
   cleanupEntry?.(); cleanupEntry = null;
   accessMode = status.mode; accountStatus = status; state = next;
   calendarMode = ['day','week','month','agenda'].includes(state.preferences.calendarMode) ? state.preferences.calendarMode : 'month';
-  render(); displays = await bridge.desktop('displays');
+  render();
+  if (!isWidget) {
+    const host = $('#app'); host.classList.remove('planner-enter');
+    void host.offsetWidth; host.classList.add('planner-enter');
+    host.addEventListener('animationend', () => host.classList.remove('planner-enter'), {once:true});
+  }
+  displays = await bridge.desktop('displays');
+  if(!isWidget&&status.mode==='account') {
+    await cloud.start(status.id);
+    if(location.hash.startsWith('#invite='))await sharing.calendars();
+  }else if(!isWidget)cloud.stop();
   const returning = accountReturn;
   accountReturn = null;
   if (returning) {
@@ -1398,8 +1447,9 @@ async function activatePlanner(status) {
 }
 async function munkaAccountPanel(notice = '', intent = {}) {
   if (accountStatus?.signedIn && accessMode === 'account') {
-    drawer('Munka account', `<p>Signed in as <strong>${esc(accountStatus.email)}</strong>.</p><p>Your planner is saved on this device. Cloud sync and sharing are coming later.</p><p class="muted small">${accountStatus.secure ? 'Your session is protected by the operating system.' : 'Your session lasts only while this app is open.'}</p><button id="munka-signout">Sign out</button>`);
-    $('#munka-signout').onclick = async () => { try { await bridge.account('signOut'); } catch(error) { toast(error.message); } };
+    drawer('Munka account', `<p>Signed in as <strong>${esc(accountStatus.email)}</strong>.</p><p>${esc(cloud.getStatus().message)}. Enable personal sync in Settings to use this planner across devices.</p><p class="muted small">${accountStatus.secure ? 'Your session is protected by the operating system.' : 'Your session lasts only while this app is open.'}</p><div class="actions"><button type="button" id="munka-switch-account">Switch account</button><button type="button" id="munka-signout">Sign out</button></div>`);
+    $('#munka-signout').onclick = () => leaveAccount(false);
+    $('#munka-switch-account').onclick = () => leaveAccount(true);
     return;
   }
   accountReturn = captureAccountReturn(intent);
@@ -1434,7 +1484,7 @@ bridge.onChange(next => {
   if (accessMode === 'locked') return;
   state = next; if (!$('.drawer')) render();
 });
-bridge.onAccessChange?.(next => { if(next.mode === 'locked') showAccountEntry('Sign in or choose Use locally to continue.'); });
+bridge.onAccessChange?.(next => { if(next.mode === 'locked' && !leavingAccount) showAccountEntry('Sign in or choose Use locally to continue.'); });
 bridge.onOpenTask?.(id => { if(accessMode !== 'locked' && state?.tasks.some(task => task.id === id)) editTask(id); });
 try {
   if (bridge.version) appVersion = await bridge.version();

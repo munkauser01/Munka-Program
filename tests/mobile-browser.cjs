@@ -21,6 +21,7 @@ async function main(){
       const jwt='eyJhbGciOiJIUzI1NiJ9.'+Buffer.from(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.test';
       return route.fulfill({json:{access_token:jwt,refresh_token:'synthetic-test-token',expires_in:3600,token_type:'bearer',user}});
     });
+    await context.route('https://pkgoupnhdpdeluychmqr.supabase.co/rest/v1/rpc/munka_cloud',route=>route.fulfill({json:route.request().postDataJSON().p_action==='calendar_list'?{calendars:[],events:[]}:[]}));
     const page=await context.newPage();
     lastPage=page;
     page.on('pageerror',error=>errors.push(error.message));
@@ -30,7 +31,7 @@ async function main(){
     await page.goto(origin+'/src/index.html');await page.locator('#munka-local').waitFor();await fits('login');await screenshot('phone-login');
     await page.locator('#entry-switch').click();await page.locator('#entry-email').fill(user.email);await page.locator('#entry-password').fill('synthetic-password-only');await page.locator('#entry-confirm').fill('synthetic-password-only');
     await page.locator('.entry-submit').click();await page.getByText('Check your email for a confirmation link.',{exact:false}).waitFor();checks.push('Signup confirmation keeps planner gated');
-    await page.locator('#munka-local').click();await page.locator('#welcome-skip').click();await page.locator('.mobile-nav').waitFor();
+    await page.locator('#munka-local').click();await page.locator('#welcome-skip').click();await page.locator('#welcome-skip').waitFor({state:'hidden'});await page.locator('.mobile-nav').waitFor();
     await page.locator('#quick-add [name=title]').fill('Prepare the biology presentation');await page.locator('#quick-add [type=submit]').click();await page.getByText('Prepare the biology presentation',{exact:true}).first().waitFor();
     await fits('home');await screenshot('phone-home');
     await page.locator('[data-action=new-task]').first().click();await page.locator('.drawer [name=title]').fill('Review chapter notes');await page.locator('.drawer [name=notes]').fill('A synthetic task for mobile verification.');

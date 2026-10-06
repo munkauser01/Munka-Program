@@ -1,0 +1,14 @@
+.sharing-row { display:flex; gap:16px; align-items:center; justify-content:space-between; padding-block:16px; border-bottom:1px solid var(--line); }
+.sharing-row > div { min-width:0; }
+.sharing-row p { margin:4px 0 10px; color:var(--muted); overflow-wrap:anywhere; }
+.sharing-row strong { overflow-wrap:anywhere; }
+.sharing-row button { flex-shrink:0; }
+.sharing-row .actions { flex-wrap:wrap; }
+.sharing-row pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; max-height:240px; overflow:auto; }
+#calendar-permissions { border:0; border-top:1px solid var(--line); margin:20px 0; padding:16px 0 0; }
+#calendar-permissions legend { font-weight:600; padding-right:12px; }
+#calendar-permissions .checkline { margin-bottom:12px; }
+.drawer fieldset { min-width:0; }
+.drawer fieldset:disabled { color:var(--muted); }
+.drawer fieldset:not(#calendar-permissions) { border:0; padding:0; margin:0; }
+@media(max-width:767px) { .sharing-row { align-items:flex-start; flex-wrap:wrap; }.sharing-row .actions { width:100%; }.sharing-row button { min-height:44px; } }

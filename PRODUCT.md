@@ -3,7 +3,7 @@
 ## Platform
 Windows 11 desktop application with an Electron web renderer; Mac Electron and installable phone web betas are being developed from the same planner. Operate mode.
 
-October 5 platform beta: 0.12.0-beta.1 adds phone navigation, offline app-shell loading, device-local account isolation and email sign-in/signup. Mobile is a PWA for iPhone/Android, as approved by the owner. No cross-device sync, phone background alerts, phone AI or live-provider connection claims. Core Mac builds target Apple Silicon and Intel, with Windows-specific overlays/wallpaper disabled; signing and notarization remain separate release work. Installed Windows stays 0.11.7. See outputs/Mac-Mobile-Beta-0.12.0.md.
+October 5 platform beta: 0.12.0-beta.2 adds opt-in personal Supabase sync across devices, shared-calendar invitations and owner/editor/viewer roles with custom event permissions. The first-use/replay guide uses Figma-authored motion; account switching preserves separate local/account records. Mobile is a PWA for iPhone/Android with offline local planning. Phone background alerts, AI and live-provider connections remain pending. Mac targets Apple Silicon and Intel, with Windows overlays/wallpaper disabled; signing/notarization remain separate release work. Installed Windows stays 0.11.7. See outputs/Sync-Sharing-0.12.0.md and the earlier beta artifact guide.
 
 ## Audience and job
 An all-in-one planner for college students organizing school and daily life. Capture tasks quickly, plan study sessions independently from deadlines, keep courses and projects organized, and keep reminders visible.

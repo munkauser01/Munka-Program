@@ -2,11 +2,11 @@
 
 Planner for school and daily life. Your day, in sight.
 
-## Mac and mobile beta — 0.12.0-beta.1
+## Mac and mobile beta — 0.12.0-beta.2
 
 The new source adds Mac build targets and an installable mobile web app. Installed Windows remains 0.11.7. Run `pnpm build:mobile` then `pnpm mobile` for the local phone-layout preview. Phone installation needs an HTTPS-hosted preview. Both Apple Silicon and Intel ZIP/DMG builds passed source and actual packaged-app smoke checks on macOS; downloads and verification are in the [beta guide](outputs/Mac-Mobile-Beta-0.12.0.md). The Mac beta has no Developer ID signing or notarization; physical installation acceptance is pending.
 
-Mobile plans are device-local, with separate local/account storage and memory-only Supabase sessions. Offline shell/task saving, backup transfer and touch navigation are implemented. Sync/sharing, mobile AI/provider connections and closed-app alerts are pending. [Draft beta PR](https://github.com/munkauser01/Munka-Program/pull/1).
+Plans save to separate local/account device stores; account users can explicitly enable cross-device personal sync. Shared calendars include recipient-bound invitations, owner/editor/viewer roles and individual create/edit/delete permissions. An animated Figma guide and account switching are included. Browser sessions remain memory-only. Mobile AI/provider connections and closed-app alerts are pending. [Sync, sharing and guide instructions](outputs/Sync-Sharing-0.12.0.md) · [Draft beta PR](https://github.com/munkauser01/Munka-Program/pull/1). Existing Mac download links in the older beta guide refer to beta.1 until beta.2 CI completes.
 
 ## Development
 

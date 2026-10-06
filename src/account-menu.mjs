@@ -9,6 +9,6 @@ export function accountMenu(status) {
     <div class="account-popover"><div class="account-popover-identity"><strong>${signedIn ? 'Munka account' : 'Local planner'}</strong><p>${signedIn ? escape(status.email) : 'Your plans are saved on this device.'}</p></div>
     ${signedIn ? '<button type="button" data-action="munka-account">Account details</button>' : '<button type="button" data-action="munka-account">Sign in or create account</button>'}
     <button type="button" data-view="settings">Settings</button>
-    ${signedIn ? '<hr><button type="button" data-action="munka-signout">Sign out</button>' : ''}</div>
+    ${signedIn ? '<button type="button" data-action="munka-switch-account">Switch account</button><hr><button type="button" data-action="munka-signout">Sign out</button>' : ''}</div>
   </details>`;
 }

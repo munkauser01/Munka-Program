@@ -28,7 +28,7 @@ jobs:
       - run: node node_modules/electron/install.js
       - run: node scripts/prepare-assets.cjs
       - run: node scripts/prepare-calendar.cjs
-      - run: node --test tests/platform-beta.test.mjs tests/browser-bridge.test.mjs
+      - run: node --test tests/platform-beta.test.mjs tests/browser-bridge.test.mjs tests/cloud-sync.test.mjs
       - run: node scripts/test-native.cjs tests/mac-beta-native.cjs
       - run: pnpm pack:mac ${{ matrix.arch }}
       - run: node scripts/test-packaged-mac.cjs ${{ matrix.arch }}

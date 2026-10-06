@@ -95,23 +95,38 @@ export function createBrowserBridge({ storage = localStorage, config = webConfig
   });
   return {
     capabilities: platformCapabilities(), account,
+    cloud: async (action, data = {}, expectedUser) => {
+      if (mode !== 'account' || user?.id !== expectedUser) throw Error('Sign in to sync this account.');
+      const instance = await client(), identity = user.id;
+      const verified = await instance.auth.getUser();
+      if (verified.error || verified.data.user?.id !== identity) throw Error('Sign in again to sync this account.');
+      const {data:value,error} = await instance.rpc('munka_cloud',{p_action:action,p_data:data}).abortSignal(AbortSignal.timeout(20000));
+      if(mode!=='account'||user?.id!==identity)throw Error('Your account changed.');
+      if(error)throw Object.assign(Error(error.message),{code:error.code});
+      return value;
+    },
+    localPlanner: async () => { requireOpen(); const raw=storage.getItem('munka'); return raw?validateBackup(JSON.parse(raw)):initialState(); },
     version: async () => ({ version: config.version, build: 'Mobile web beta', platform: 'web', capabilities: platformCapabilities() }),
     load: async () => { requireOpen(); return read(); },
-    save: async (next, expectedRevision) => {
+    save: async (next, expectedRevision, expectedAccount) => {
       requireOpen();
+      const targetKey=key(),targetMode=mode,targetUser=user?.id;
       const write = () => {
         requireOpen();
+        if(key()!==targetKey||mode!==targetMode||user?.id!==targetUser||
+           (expectedAccount!==undefined && expectedAccount!==(mode==='account'?user?.id:null)))
+          throw Error('Your account changed. Reopen the planner before saving.');
         const current = read();
         if (current.revision !== expectedRevision) throw Error('Your planner changed in another tab. Review the latest version and try again.');
         const checked = validateBackup(next);
         checked.revision = current.revision + 1;
         const raw = JSON.stringify(checked);
         if (raw.length > 4 * 1024 * 1024) throw Error('Device storage is nearly full. Export a backup and archive older plans.');
-        try { storage.setItem(key(), raw); }
+        try { storage.setItem(targetKey, raw); }
         catch { throw Error('This device could not save your plan. Free storage or leave private browsing, then try again.'); }
         return checked;
       };
-      return globalThis.navigator?.locks ? navigator.locks.request(`munka-save:${key()}`, async () => write()) : write();
+      return globalThis.navigator?.locks ? navigator.locks.request(`munka-save:${targetKey}`, async () => write()) : write();
     },
     onChange: listener => { changeListeners.add(listener); return () => changeListeners.delete(listener); },
     onAccessChange: listener => { accessListeners.add(listener); return () => accessListeners.delete(listener); },

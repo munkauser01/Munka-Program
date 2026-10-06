@@ -7,6 +7,7 @@ require('./prepare-assets.cjs'); require('./prepare-calendar.cjs');
 fs.mkdirSync(output, { recursive: true });
 fs.mkdirSync(path.join(output, 'src/vendor'), { recursive: true });
 fs.mkdirSync(path.join(output, 'assets/navigation'), { recursive: true });
+fs.mkdirSync(path.join(output, 'assets/guide'), { recursive: true });
 const files = [];
 function copy(from, to) { fs.copyFileSync(path.join(root, from), path.join(output, to)); files.push(to); }
 for (const name of fs.readdirSync(path.join(root, 'src'))) {
@@ -17,6 +18,7 @@ copy('node_modules/@supabase/supabase-js/dist/umd/supabase.js', 'src/vendor/supa
 copy('node_modules/@supabase/supabase-js/LICENSE', 'src/vendor/supabase-LICENSE');
 for (const name of fs.readdirSync(path.join(root, 'assets/navigation')).filter(name => name.endsWith('.svg'))) copy('assets/navigation/' + name, 'assets/navigation/' + name);
 copy('assets/munka.png', 'assets/munka.png');
+for (const name of ['tasks.svg','calendar.svg','sharing.svg']) copy('assets/guide/' + name, 'assets/guide/' + name);
 // Public publishable key only; validate rather than copying arbitrary config.
 if (!/^sb_publishable_[A-Za-z0-9_-]+$/.test(pkg.munkaAccount?.publishableKey || '') || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(pkg.munkaAccount?.url || '')) throw Error('Invalid public Supabase configuration.');
 fs.writeFileSync(path.join(output, 'src/web-config.mjs'), 'export const webConfig = Object.freeze(' + JSON.stringify({version:pkg.version,...pkg.munkaAccount}) + ');\n');
@@ -49,5 +51,5 @@ const headers = {
 fs.writeFileSync(path.join(output,'vercel.json'), JSON.stringify({headers:[{source:'/(.*)',headers:Object.entries(headers).map(([key,value])=>({key,value}))}]},null,2));
 fs.writeFileSync(path.join(output,'_headers'), '/*\n' + Object.entries(headers).map(([key,value])=>'  '+key+': '+value).join('\n')+'\n');
 const artifactFiles = [...files,'sw.js','vercel.json','_headers'].sort().map(file=>({file,sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(output,file))).digest('hex')}));
-fs.writeFileSync(path.join(output,'build.json'), JSON.stringify({version:pkg.version,cacheName,cloudSync:false,backgroundAlerts:false,files:artifactFiles},null,2));
+fs.writeFileSync(path.join(output,'build.json'), JSON.stringify({version:pkg.version,cacheName,cloudSync:true,sharedCalendars:true,backgroundAlerts:false,files:artifactFiles},null,2));
 console.log('Mobile beta built: ' + output);

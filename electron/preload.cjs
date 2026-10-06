@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld("munka", {
   // parity with platform-policy.cjs (covered by the platform beta test).
   capabilities: { platform: process.platform, desktop: true, overlays: process.platform === 'win32', wallpaper: process.platform === 'win32', notifications: true, syllabus: true, connections: true, ai: true },
   account: async (action, data) => {const r=await ipcRenderer.invoke('account',action,data);if(!r.ok)throw Error(r.error);return r.value;},
+  cloud: async (action,data,user) => {const r=await ipcRenderer.invoke('cloud',action,data,user);if(!r.ok)throw Object.assign(Error(r.error),{code:r.code});return r.value;},
+  localPlanner: () => ipcRenderer.invoke('local-planner'),
   onAccessChange: callback => { const listener = (_, value) => callback(value); ipcRenderer.on('access-change', listener); return () => ipcRenderer.removeListener('access-change', listener); },
   calendars: async (action,data) => {const r=await ipcRenderer.invoke('calendars',action,data);if(!r.ok)throw Error(r.error);return r.value;},
   syllabus: async (action,data) => {const r=await ipcRenderer.invoke('syllabus',action,data);if(!r.ok)throw Error(r.error);return r.value;},
@@ -20,7 +22,7 @@ contextBridge.exposeInMainWorld("munka", {
     if (!result.ok) throw Error(result.error);
     return result.value;
   },
-  save: (state, revision) => ipcRenderer.invoke("save", state, revision),
+  save: (state, revision, accountId) => ipcRenderer.invoke("save", state, revision, accountId),
   exportFile: (text, extension) =>
     ipcRenderer.invoke("export", text, extension),
   importFile: () => ipcRenderer.invoke("import"),

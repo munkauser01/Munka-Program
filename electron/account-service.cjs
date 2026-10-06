@@ -170,7 +170,16 @@ function createAccountService({ url, publishableKey, file, safeStorage, openExte
       });
     });
   }
-  return { status, providers, signIn, register, signOut, google, cancel };
+  async function cloud(action, data, expectedUser) {
+    const verified = await status();
+    if (!verified.signedIn || verified.id !== expectedUser) throw Error('Sign in again to sync this account.');
+    const allowed = ['planner_read','planner_write','calendar_list','calendar_create','calendar_update','calendar_members','calendar_invite','calendar_access','calendar_revoke','calendar_leave','invitation_list','invitation_accept','invitation_revoke','event_write'];
+    if (!allowed.includes(action)) throw Error('Unknown cloud action.');
+    const { data: value, error } = await client.rpc('munka_cloud', { p_action: action, p_data: data || {} }).abortSignal(AbortSignal.timeout(20000));
+    if (error) throw Object.assign(Error(error.message), { code: error.code });
+    return value;
+  }
+  return { status, providers, signIn, register, signOut, google, cancel, cloud };
 }
 
 module.exports = { createAccountService, encryptedStorage };

@@ -5,8 +5,9 @@ process.env.MUNKA_TEST_AUTH_PANEL = 'true';
 const { app, BrowserWindow } = require('electron');
 require('../electron/account-service.cjs').createAccountService = ({ onSignedOut }) => {
   let signedIn = false;
-  const status = async () => ({ signedIn, email: signedIn ? 'test@example.com' : null, secure: true });
+  const status = async () => ({ signedIn, id: signedIn ? 'f1111111-1111-4111-8111-111111111111' : null, email: signedIn ? 'test@example.com' : null, secure: true });
   return { status, providers: async () => ({ google: false }), cancel: () => ({}),
+    cloud: async action => action === 'calendar_list' ? {calendars:[],events:[]} : action === 'invitation_list' ? [] : {revision:0,body:null},
     signIn: async () => { signedIn = true; return status(); }, register: async () => ({ confirmationRequired: true }),
     signOut: async () => { signedIn = false; onSignedOut(); return status(); } };
 };
