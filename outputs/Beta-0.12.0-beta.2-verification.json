@@ -1,0 +1,60 @@
+{
+  "version": "0.12.0-beta.2",
+  "sourceCommit": "4c1b2dce1d616caedfead2ed0464ac39ef49f20a",
+  "mac": {
+    "run": 37405229458,
+    "jobs": [
+      {
+        "name": "build (macos-15-intel, x64)",
+        "conclusion": "success"
+      },
+      {
+        "name": "build (macos-15, arm64)",
+        "conclusion": "success"
+      }
+    ],
+    "nativeAndPackagedPassed": true,
+    "signed": false,
+    "notarized": false,
+    "physicalDeviceAcceptance": false,
+    "artifacts": [
+      {
+        "id": 11387340997,
+        "name": "Munka-mac-beta-x64",
+        "url": "https://github.com/munkauser01/Munka-Program/actions/runs/37405229458/artifacts/11387340997",
+        "expires": "2026-10-20T02:41:51Z"
+      },
+      {
+        "id": 11387126256,
+        "name": "Munka-mac-beta-arm64",
+        "url": "https://github.com/munkauser01/Munka-Program/actions/runs/37405229458/artifacts/11387126256",
+        "expires": "2026-10-20T02:40:44Z"
+      }
+    ]
+  },
+  "windows": {
+    "packagedLaunchPassed": true,
+    "sourceFilesMatched": 66,
+    "installedStable": "0.11.7"
+  },
+  "unitTests": {
+    "passed": 17
+  },
+  "browser": {
+    "guideAccountSwitch": true,
+    "sharing": true,
+    "mobileOfflineSignup": true,
+    "liveAuth": false
+  },
+  "liveDatabaseAuthorization": {
+    "rollbackSuitePassed": true,
+    "fixturesRemoved": true
+  },
+  "figma": {
+    "fileKey": "e4BORKHMCBpCP5yiLUMRS9",
+    "motionPage": "8:46",
+    "finalCanvasRender": "Blocked by Starter tool-call limit; shipped browser visuals verified"
+  },
+  "preview": "http://127.0.0.1:4321/src/index.html",
+  "publicHosting": false
+}

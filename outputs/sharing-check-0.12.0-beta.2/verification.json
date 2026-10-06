@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "SDK email login and RPC contract",
+    "same account task across desktop/phone sessions",
+    "owner creates calendar and invites editor",
+    "email invitation inbox/acceptance",
+    "editor creates event but cannot delete",
+    "owner changes individual permissions",
+    "viewer displays only",
+    "revoked member calendar removed"
+  ],
+  "liveAuthentication": false,
+  "liveDatabaseAuthorization": "Separate rollback SQL suite passed",
+  "errors": []
+}

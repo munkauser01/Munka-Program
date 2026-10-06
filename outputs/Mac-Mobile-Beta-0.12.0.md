@@ -1,5 +1,7 @@
 # Munka Mac and mobile beta
 
+October 5 update: beta.2 adds account sync, calendar sharing and Figma guided motion. [Current instructions and Mac downloads](Sync-Sharing-0.12.0.md). The build links below are the earlier beta.1 artifacts.
+
 October 5, 2026 · 0.12.0-beta.1
 
 ## What is built

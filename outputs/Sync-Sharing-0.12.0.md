@@ -44,6 +44,13 @@ First use opens a three-step animated tour, then optional personalization. **Set
 
 Figma motion page: [Munka guide](https://www.figma.com/design/e4BORKHMCBpCP5yiLUMRS9?node-id=8-54). Manual keyframes drive the guide and account CSS. Figma uses Inter because Segoe UI is unavailable there; the app preserves its native font. Starter plan tool limits blocked a final Figma re-render after text wrapping; browser validation covers the shipped guide. No video was exported because a local frame extractor was unavailable.
 
-## Remaining
+## Beta builds
+
+- [Fresh local preview](http://127.0.0.1:4321/src/index.html). This separate browser origin avoids the earlier preview's cache; its local planner is separate. Sign in to use the same account and enable sync explicitly.
+- Windows: `outputs/release/Munka Setup 0.12.0-beta.2.exe`. The packaged executable passed launch/local/task/calendar/settings checks; 66 source and guide files matched the archive. Installed stable Windows remains 0.11.7.
+- Phone archive: `outputs/Munka-0.12.0-beta.2-mobile.zip`. Public hosting has not been deployed.
+- [Apple Silicon beta](https://github.com/munkauser01/Munka-Program/actions/runs/37405229458/artifacts/11387126256) and [Intel beta](https://github.com/munkauser01/Munka-Program/actions/runs/37405229458/artifacts/11387340997): ZIP/DMG plus build verification. Both architectures passed native source and actual packaged-app smoke checks on matching macOS runners. Source commit: `4c1b2dce1d616caedfead2ed0464ac39ef49f20a`. Artifacts expire October 19 Eastern (October 20 UTC); save them before then. Unsigned/unnotarized, with physical Mac acceptance pending.
+
+## Next acceptance
 
 Mobile Google/Outlook provider connection setup is the next separate milestone, after this requested sync/sharing flow. HTTPS hosting approval is still needed for a phone-accessible preview. Mac public distribution still needs Developer ID signing/notarization. Real two-user acceptance should verify each permission and revocation across devices before wider rollout.

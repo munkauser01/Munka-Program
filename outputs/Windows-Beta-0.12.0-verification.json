@@ -1,0 +1,271 @@
+{
+  "version": "0.12.0-beta.2",
+  "passed": true,
+  "sourceFilesMatched": 66,
+  "files": [
+    {
+      "file": "src/account-entry.css",
+      "sha256": "92139d2986e3e4f73e3dfc463eedf42ac769c38e42812b6f534334ec01d2a162"
+    },
+    {
+      "file": "src/account-entry.mjs",
+      "sha256": "4b2dedd8bf62c1efe0520d266af933dafb173da307ea3b4ed6f6e45ef70a302d"
+    },
+    {
+      "file": "src/account-menu.mjs",
+      "sha256": "a370bacc109b54523e6f23357654882ab7c43888b65c9ab9f659b1325e8d5e3a"
+    },
+    {
+      "file": "src/ai-deadlines.mjs",
+      "sha256": "2f09e523fce34140e10e7c45903bc53efe789208a923ef185fdf66da4f94c5cb"
+    },
+    {
+      "file": "src/ai-dialogs.mjs",
+      "sha256": "ea35afdd26f0ef48e4f6dc2069a46267fe6df267c53e8da68b1248bd1f836467"
+    },
+    {
+      "file": "src/ai-proposals.mjs",
+      "sha256": "d767fe4b69d6c8ec59ed898e9bb9bf24f76531469f00dd0421e8224d6ed6c509"
+    },
+    {
+      "file": "src/ai-providers.mjs",
+      "sha256": "a0c2dfc4c50817e2ba16381daa3be1984a7fc4aed1c2696864e6739aef882926"
+    },
+    {
+      "file": "src/app.mjs",
+      "sha256": "421293df37db68ad8b8e9ab73e1ce0b2b680b3e895b77096436e7f51fc4130ac"
+    },
+    {
+      "file": "src/batch-task-dialog.mjs",
+      "sha256": "9303f01dc46499f1d463ecccf60778c0bff91ecf71d90a18cba02c3fcdba9dad"
+    },
+    {
+      "file": "src/batch-tasks.mjs",
+      "sha256": "21df82a7b7b9c5a5a74b554192b08f8272b69cb9eb885c9e021dc03c39837e0b"
+    },
+    {
+      "file": "src/browser-bridge.mjs",
+      "sha256": "3a77aa32d536cb0a46272aa344cc398cb4a93183c2a0af408c2f0c27033498ac"
+    },
+    {
+      "file": "src/calendar-colors.mjs",
+      "sha256": "1e98626f62231433fffba17c0696c5136f7abf8ad1e5393a6f9f1d0cf3752546"
+    },
+    {
+      "file": "src/calendar-connections.mjs",
+      "sha256": "491649ae208d58dab70c762a5a30351603fef37939c1af97ead6c2b4b463266e"
+    },
+    {
+      "file": "src/calendar-dialogs.mjs",
+      "sha256": "c35850c8e632f3ef546bd375423d89605921cae76872c64b3b34151c255609d8"
+    },
+    {
+      "file": "src/calendar-import-worker.mjs",
+      "sha256": "755196c60c4f78dcfc915703e245824a4856c30ab99b9734f06f54ce55a911b8"
+    },
+    {
+      "file": "src/calendar-import.mjs",
+      "sha256": "c3acd0b3cc366d5bd453e9d1ec838d3e7a5e1e747d782fb9bc3fb1d3fd624e32"
+    },
+    {
+      "file": "src/calendar-model.mjs",
+      "sha256": "2ad3a85ec0a1a188b0864e1591dba287d4dc969d4b81da67f27744a6e6c76ef3"
+    },
+    {
+      "file": "src/calendar-view.mjs",
+      "sha256": "73e18096d5f3f1f6bf449e3377082f6bdc868b788de1dc138f39534d35e0976b"
+    },
+    {
+      "file": "src/calendar.css",
+      "sha256": "288ae08a94d3559e0b7c1ed1e1941181bfa7d7850f48e92c51a4a2b5ada25e61"
+    },
+    {
+      "file": "src/cloud-sync.mjs",
+      "sha256": "b248cae7128ae12521e774b836c334b50ac04572726ee99048ef938c3e3e51b5"
+    },
+    {
+      "file": "src/desktop-view.mjs",
+      "sha256": "726ce0eeb27d40ab9a70746a839d53f2ef19321cb71c096b7c386a7a835e0e9f"
+    },
+    {
+      "file": "src/domain.mjs",
+      "sha256": "dda50ede286ffab1ab8cd2d873c6e381b04c005f2668453138dcc58f4008f7c6"
+    },
+    {
+      "file": "src/guide-motion.css",
+      "sha256": "3c60288301a137492a9d47b371269404c561d83dc37f9087dfdd4594a956d0df"
+    },
+    {
+      "file": "src/icons.mjs",
+      "sha256": "0ba6942efe4e7752f34fb205f81fb3a9a3f97e41decdada9af0802792de756e5"
+    },
+    {
+      "file": "src/index.html",
+      "sha256": "a1e41baf1bb01171eefb3e99e82b94d04349f6397d1d56d71ebd69eea8f4b574"
+    },
+    {
+      "file": "src/managed-ai-contract.mjs",
+      "sha256": "3ef3046672f92e9dcf92dec04c50fb054b10c79b2e126c2f881a1732c8b5c915"
+    },
+    {
+      "file": "src/mobile.css",
+      "sha256": "9faf983f5f0d4b61706bcb17e00a0cfe7199a06ea573b2af086dd99b15f2a9f7"
+    },
+    {
+      "file": "src/mobile.mjs",
+      "sha256": "3d6f8894abaaf35b1ea1f6dd65b38a578ad07ee88c0f44e8355cb2779d7d18f0"
+    },
+    {
+      "file": "src/onboarding.mjs",
+      "sha256": "358ee966b7cfad38c0f9d49ac7bbdd146c1e7e867ae9a009eb9234be8451d4af"
+    },
+    {
+      "file": "src/planner-render-model.mjs",
+      "sha256": "57c44ad6d2549feb54cd4d7eb9f94faaa3ffee36fff05332244168318670cf8c"
+    },
+    {
+      "file": "src/planner-selectors.mjs",
+      "sha256": "00615b57e0e4d63395cc07ab2610c972184c57959b820733df14c90fbd66859d"
+    },
+    {
+      "file": "src/platform.mjs",
+      "sha256": "58ea86ebb488df5823d9d643829df0d96cdc3d94127ad1755b07d98a105cf31d"
+    },
+    {
+      "file": "src/product-guide.mjs",
+      "sha256": "deeea715fe443af75b7c87396f85e9be0a906710ff92f0a38ca656360c11e6d4"
+    },
+    {
+      "file": "src/sharing-dialogs.mjs",
+      "sha256": "f6b0a33ecf62d29ab3debd575ba361070d0f31fdf30f6a3bed7480d5203703f4"
+    },
+    {
+      "file": "src/sharing.css",
+      "sha256": "bcfc2cf7b6d4146f14b7662724f031d0ff6e41f1f404989ad24a37fdf5db1b83"
+    },
+    {
+      "file": "src/styles.css",
+      "sha256": "ec667637728375c9f0f991818116299b60f1d7c7dd8b10345b76c420e225ea28"
+    },
+    {
+      "file": "src/syllabus-dialog.mjs",
+      "sha256": "7562a0c7056ff2c5661c322af2af77495e6cb88151bee68ce3b76b9c0251d59d"
+    },
+    {
+      "file": "src/syllabus-model.mjs",
+      "sha256": "555c21b7da9d82a20b818d7093cfd3d029ce6baddf8ece473af3b7a48faa91bc"
+    },
+    {
+      "file": "src/sync.mjs",
+      "sha256": "8426414aea52d4e14976af8ad3c60cc55218e1e953860a4142025ec56ca3ccbf"
+    },
+    {
+      "file": "src/task-drafts.mjs",
+      "sha256": "c4a70bf2b2fe7c9c3e868f2b07e209c9a5344ac1c407d1d9924c6534f1fa1348"
+    },
+    {
+      "file": "src/task-form.mjs",
+      "sha256": "74030cc7945c67d5d10ace969b01142c3abafcf73e08e52ec7e80d3207b39eb6"
+    },
+    {
+      "file": "src/task-order.mjs",
+      "sha256": "1eca72d7d461167764610298de1e902ca61b9a0821ef7664809b069dc5828dde"
+    },
+    {
+      "file": "src/wallpaper.css",
+      "sha256": "1f0b5789ed0d5c072277643ce3b1466b3dff91499ccb63d5e500e41efad9ad88"
+    },
+    {
+      "file": "src/wallpaper.html",
+      "sha256": "e7ba5606e76aab5ccd8caf1b7aadaee3a0ffbd9f804bb5763cad8fc79e9f9f59"
+    },
+    {
+      "file": "src/web-config.mjs",
+      "sha256": "15cf1a62363b2171ae4b131e475b7856b79cc612d04e588c1d3596ed33b33c73"
+    },
+    {
+      "file": "src/widget-controls.mjs",
+      "sha256": "338205b0e7aee659f69295ecd88e7d57df361af69c1314958ff36ba40e70d76a"
+    },
+    {
+      "file": "src/widget-model.mjs",
+      "sha256": "e85b104fbad1a4f3794d05c17b9f868bd4b773088a97316e90a3a874a3e9b317"
+    },
+    {
+      "file": "src/workload-dialog.mjs",
+      "sha256": "0d4c6768c9a4ef8fbe3727319315b0e2616bdd7e8158aa6437392d8787b99d7d"
+    },
+    {
+      "file": "src/workload.mjs",
+      "sha256": "d5a9cbbcc17ce69027fd3d5d02bba2880b21e12e87bdd52dde499ec939a0d73c"
+    },
+    {
+      "file": "electron/account-service.cjs",
+      "sha256": "8d5aae23d5373b70c9f8a24673dd05b48b7fa4f30039af58c675e87a1334c739"
+    },
+    {
+      "file": "electron/ai-service.cjs",
+      "sha256": "c61a9cd9b7ba5022731e3e241aae39de024914ddcf92776af7299535224c1bb5"
+    },
+    {
+      "file": "electron/calendar-service.cjs",
+      "sha256": "14b124db857a50dcab82d2c3c16600ddc2862899a1f4cd5f399d0e9a7c13e850"
+    },
+    {
+      "file": "electron/document-worker.cjs",
+      "sha256": "566b3fdec53b60247f4701dabbf7438c32707195414abbf3934e468b8d7beec0"
+    },
+    {
+      "file": "electron/main.cjs",
+      "sha256": "f9d2eb556cc4690bac342b8a8b4edcf24526e05f70db0c7075a055e243bd7dc0"
+    },
+    {
+      "file": "electron/managed-ai-service.cjs",
+      "sha256": "57873f2e723d0966f921de2fcc89cbebfcb8f8b4fe278eccabf21d1dd3610d67"
+    },
+    {
+      "file": "electron/overlay-controller.cjs",
+      "sha256": "9efbe3762f209081a5a755ea0244be5fbe404dddd6d03276f47ad9853896f3b0"
+    },
+    {
+      "file": "electron/overlay-policy.cjs",
+      "sha256": "94ee8322f4315ccb5f101251acf752243b074bfe7ab60cf96a8dbc512e3ff677"
+    },
+    {
+      "file": "electron/owner-ai-service.cjs",
+      "sha256": "9f45d2d16e006670129270bd9670bc4c6bc8435905bddd8b163a0af87ddd49a1"
+    },
+    {
+      "file": "electron/platform-policy.cjs",
+      "sha256": "3c6aaa6fef849674d0e92b8b2d43bf63e96e5ebbe04912864648f25123d851e8"
+    },
+    {
+      "file": "electron/preload.cjs",
+      "sha256": "185c85d50549ada1e9d02dd257af33de30f53b5c85f5bc4aad380677cc51169a"
+    },
+    {
+      "file": "electron/syllabus-service.cjs",
+      "sha256": "c4989462e0fa9ef14771af50170f3e6d6092c7b3e0b71c617b86bce548c447df"
+    },
+    {
+      "file": "electron/wallpaper-model.cjs",
+      "sha256": "df5b61e9f9106179c9f5383c2fe8625c6fd8ee3bd7b34b17ee07fa40480b5539"
+    },
+    {
+      "file": "electron/widget-bounds.cjs",
+      "sha256": "c037129c5c28cf863e1062e870861b24410eb7ab1e014bb228c606b638deb1cd"
+    },
+    {
+      "file": "assets/guide/calendar.svg",
+      "sha256": "f9a0ee28206cb9ce00c183c95e052922d90b85dc30c16498228003341d2484c9"
+    },
+    {
+      "file": "assets/guide/sharing.svg",
+      "sha256": "a25cb380265d1d712f013d21f70f0b57bd8e5576218b93bd5b55e19f6e165aef"
+    },
+    {
+      "file": "assets/guide/tasks.svg",
+      "sha256": "fd09ff098f24810c20c39ecd303c2c68343ea9d102bfe3a09bb74be5559d87b4"
+    }
+  ]
+}
