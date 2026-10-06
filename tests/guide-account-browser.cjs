@@ -18,7 +18,7 @@ const output=path.resolve('outputs/guide-check-'+require('../package.json').vers
    });
    await context.route('https://pkgoupnhdpdeluychmqr.supabase.co/rest/v1/rpc/munka_cloud',route=>route.fulfill({json:route.request().postDataJSON().p_action==='calendar_list'?{calendars:[],events:[]}:[]}));
    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-   async function shot(name){await page.evaluate(()=>Promise.allSettled(document.getAnimations().map(a=>a.finished)));await page.screenshot({path:path.join(output,(phone?'phone-':'desktop-')+name+'.png')});}
+   async function shot(name){await page.waitForFunction(()=>[...document.images].every(image=>image.complete&&image.naturalWidth>0));await page.evaluate(()=>Promise.allSettled(document.getAnimations().map(a=>a.finished)));await page.screenshot({path:path.join(output,(phone?'phone-':'desktop-')+name+'.png')});}
    async function settings(){await page.locator('#close-drawer').count()&&await page.locator('#close-drawer').click();if(phone){await page.locator('.mobile-nav [data-view=more]').click();await page.locator('.mobile-more [data-view=settings], [data-view=settings]:visible').first().click();}else await page.locator('[data-view=settings]:visible').first().click();}
    async function login(user,first=true){await page.locator('#entry-email').fill(user.email);await page.locator('#entry-password').fill('synthetic-test-password');await page.locator('.entry-submit').click();await page.locator('.account-entry').waitFor({state:'detached'});if(first){await page.locator('#welcome-skip').waitFor();await page.locator('#welcome-skip').click();await page.locator('.drawer').waitFor({state:'detached'});}}
    await page.goto('http://127.0.0.1:'+server.address().port+'/src/index.html');await page.locator('#munka-local').click();
@@ -40,4 +40,3 @@ const output=path.resolve('outputs/guide-check-'+require('../package.json').vers
   assert.deepEqual(errors,[]);fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({passed:true,checks:['three previews with Next/Back/Skip','first-use personalization and Settings replay','keyboard focus','Figma keyframes active on desktop; static under reduced motion','account switch isolates both accounts and local planner','signout clears private content before sign-in'],liveAuthentication:false,errors},null,2));console.log(JSON.stringify({passed:true,output}));
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
-

@@ -4,9 +4,9 @@
 .drawer.guide-drawer { width:min(100vw,500px); }
 .guide-drawer .drawer-head h2 { font-size:24px; line-height:1.2; max-width:20ch; }
 .guide-lead { color:var(--muted); margin:0 0 22px; }
-.guide-preview { margin:0; }
+.guide-preview { margin:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel); }
 .guide-preview img { display:block; width:416px; max-width:100%; height:auto; border-radius:12px; }
-.guide-preview figcaption { font-size:12px; color:var(--muted); margin-top:8px; }
+.guide-preview figcaption { font-size:12px; color:var(--muted); margin:0; padding:10px 14px; background:var(--nav); }
 .guide-caption { font-size:14px; color:var(--muted); margin:22px 0; }
 .guide-progress { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; margin:24px 0 8px; }
 .guide-controls { display:flex; align-items:center; gap:8px; padding-top:14px; border-top:1px solid var(--line); }
