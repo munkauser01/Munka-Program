@@ -16,3 +16,32 @@ test('switching accounts discards an old in-flight calendar response and starts 
   d.bridge.cloud=(action,data,user)=>{if(action==='calendar_list'&&user==='old'){oldRequested=true;return new Promise(resolve=>release=resolve);}return original(action,data,user);};
   try{const old=d.cloud.start('old');while(!oldRequested)await new Promise(resolve=>setImmediate(resolve));await d.cloud.start('new');release({calendars:[{id:'old-private'}],events:[]});await old;assert.deepEqual(d.cloud.getStatus().calendars,[]);assert.equal(d.cloud.getStatus().busy,false);}finally{d.cloud.stop();}
 });
+test('background personal commits keep the renderer revision current without calendar metadata changes',async()=>{
+  const server=network();let stored=initialState(),rendered=clone(stored),notifications=0;
+  const bridge={load:async()=>clone(stored),save:async(next,revision)=>{
+    assert.equal(revision,stored.revision,'Renderer saves must use the latest local revision');
+    stored={...clone(next),revision:revision+1};return clone(stored);
+  },cloud:(action,data)=>server.rpc(action,data)};
+  const cloud=createCloudSync({bridge,onPlannerChange:(next,identity)=>{assert.equal(identity,'account');rendered=next;notifications++;}});
+  try{
+    await cloud.start('account');await cloud.enable();
+    rendered.preferences.calendarMode='day';rendered=await bridge.save(rendered,rendered.revision);
+    await cloud.sync();
+    assert.equal(rendered.revision,stored.revision);assert.ok(notifications>=3);
+    rendered.preferences.calendarMode='week';await bridge.save(rendered,rendered.revision);
+    assert.equal(stored.preferences.calendarMode,'week');
+  }finally{cloud.stop();}
+});
+test('a completed cloud commit cannot notify the renderer after its account generation stops',async()=>{
+  const server=network(),notifications=[];let stored=initialState(),release,started;
+  const saving=new Promise(resolve=>started=resolve);
+  const bridge={load:async()=>clone(stored),save:async(next,revision)=>{
+    assert.equal(revision,stored.revision);stored={...clone(next),revision:revision+1};
+    started();return new Promise(resolve=>release=()=>resolve(clone(stored)));
+  },cloud:(action,data)=>server.rpc(action,data)};
+  const cloud=createCloudSync({bridge,onPlannerChange:(next,identity)=>notifications.push({next,identity})});
+  try{
+    await cloud.start('old-account');const pending=cloud.enable();await saving;
+    cloud.stop();release();await pending;assert.deepEqual(notifications,[]);
+  }finally{cloud.stop();}
+});

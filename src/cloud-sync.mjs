@@ -41,7 +41,7 @@ function applyPersonal(state, body) {
   for(const key of syncedPreferences) if(body.preferences[key]!==undefined)next.preferences[key]=copy(body.preferences[key]);
   return validateBackup(next);
 }
-export function createCloudSync({bridge,onStatus=()=>{}}) {
+export function createCloudSync({bridge,onStatus=()=>{},onPlannerChange=()=>{}}) {
   let user=null,generation=0,busy=false,applying=false,timer;
   let status={enabled:false,busy:false,message:'Sync is off',conflicts:[],calendars:[],invitations:[]};
   const publish=patch=>{status={...status,...patch};onStatus(status);return status;};
@@ -55,7 +55,12 @@ export function createCloudSync({bridge,onStatus=()=>{}}) {
   }
   async function commit(next,revision,token=generation){
     if(token!==generation||!user)throw Error('Your account changed.');
-    applying=true;try{return await bridge.save(next,revision,user);}finally{applying=false;}
+    const identity=user;
+    applying=true;try{
+      const saved=await bridge.save(next,revision,identity);
+      if(token===generation&&user===identity)onPlannerChange(saved,identity);
+      return saved;
+    }finally{applying=false;}
   }
   async function shared() {
     const token=generation;

@@ -106,7 +106,7 @@ let state,
   displays = [],
   accountStatus = null;
 let accessMode = 'locked', cleanupEntry = null, accountReturn = null;
-let appVersion = { version: '0.12.0-beta.2', build: 'Mobile web beta' };
+let appVersion = { version: '0.12.0-beta.3', build: 'Mobile web beta' };
 let capabilities = platformCapabilities(window.munka ? 'win32' : 'web');
 const isWidget = new URLSearchParams(location.search).has("widget");
 const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
@@ -114,11 +114,25 @@ import { widgetModel, widgetTaskState } from './widget-model.mjs';
 import { desktopView } from './desktop-view.mjs';
 import { resizeHandles, bindOverlayControls } from './widget-controls.mjs';
 import { calendarView as renderCalendar, bindCalendar } from './calendar-view.mjs';
+import { calendarScope } from './calendar-picker.mjs';
 import { calendarActions } from './calendar-dialogs.mjs';
 import { aiActions } from './ai-dialogs.mjs';
 import { calendarColors, validCalendarColor } from './calendar-colors.mjs';
 const bridge = window.munka || createBrowserBridge();
-const cloud = createCloudSync({bridge,onStatus:status=>{const el=$('#cloud-sync-status');if(el)el.textContent=status.message;}});
+let calendarStatusKey='', calendarRefreshPending=false;
+const calendarDrafts=new Map();
+const cloud = createCloudSync({bridge,onPlannerChange:(next,identity)=>{
+  if(accessMode!=='account'||accountStatus?.id!==identity||!state||next.revision<state.revision)return;
+  state=next;
+  if($('.drawer'))calendarRefreshPending=true;else render();
+},onStatus:status=>{
+  const el=$('#cloud-sync-status');if(el)el.textContent=status.message;
+  const key=JSON.stringify([status.calendars,status.invitations]);
+  if(key===calendarStatusKey)return;
+  calendarStatusKey=key;
+  if(accessMode!=='account'||!state)return;
+  if(view==='calendar') {if($('.drawer'))calendarRefreshPending=true;else render();}
+}});
 const sharing = sharingDialogs({...extensionTools(),cloud});
 function toast(message, action) {
   const el = $("#toast");
@@ -231,8 +245,9 @@ function taskView() {
   );
 }
 function calendarView() {
-  const visibleState={...state,events:state.events.filter(event=>!(state.preferences.hiddenSharedCalendars||[]).includes(event._sync?.space))};
-  return renderCalendar({ state:visibleState, date: calendarDate, mode: calendarMode, showDone: calendarShowDone, source: calendarSource, focus: calendarFocus, sharedCalendars:cloud.getStatus().calendars, esc, icon });
+  const status=cloud.getStatus();
+  if(calendarScope(calendarSource,status.calendars).missing) {calendarDrafts.delete(calendarSource);calendarSource='all';calendarFocus='all';}
+  return renderCalendar({ state, date: calendarDate, mode: calendarMode, showDone: calendarShowDone, source: calendarSource, focus: calendarFocus, sharedCalendars:status.calendars, invitations:status.invitations.length, esc, icon });
 }
 function extensionTools() {return {bridge,getState:()=>state,save,drawer,field,select,esc,closeDrawer,toast,refresh:async()=>{state=await bridge.load();render();}};}
 function planPrompt(text='') {if(accessMode !== 'account') return munkaAccountPanel('Sign in to use Munka Assistant. Your draft will be kept.', { assistantPrompt: text }); return aiActions(extensionTools()).open(text).catch(error=>toast(error.message));}
@@ -405,7 +420,8 @@ function render() {
   const captureBefore = $('#quick-add input');
   const captureDraft = captureBefore ? {value:captureBefore.value,context:captureBefore.form.dataset.context} : null;
   const quickBefore = $('#calendar-quick-add');
-  const quickDraft = quickBefore ? { values: Object.fromEntries(new FormData(quickBefore)), day: quickBefore.dataset.selectedDay } : null;
+  const quickDraft = quickBefore ? { values: Object.fromEntries(new FormData(quickBefore)), day: quickBefore.dataset.selectedDay, target:quickBefore.dataset.creationTarget } : null;
+  if(quickDraft)calendarDrafts.set(quickDraft.target,quickDraft);
   const dark =
     state.preferences.theme === "dark" ||
     (state.preferences.theme === "system" &&
@@ -450,9 +466,10 @@ function render() {
   const quickAfter = $('#calendar-quick-add');
   if (quickAfter) {
     quickAfter.dataset.selectedDay = calendarDate;
-    if (quickDraft) {
-      quickAfter.elements.title.value = quickDraft.values.title;
-      if (quickDraft.day === calendarDate) quickAfter.elements.date.value = quickDraft.values.date;
+    const matchingDraft=calendarDrafts.get(quickAfter.dataset.creationTarget);
+    if (matchingDraft) {
+      quickAfter.elements.title.value = matchingDraft.values.title;
+      if (matchingDraft.day === calendarDate) quickAfter.elements.date.value = matchingDraft.values.date;
     }
   }
   if ($(".drawer")) $("#app").inert = true;
@@ -475,6 +492,7 @@ function closeDrawer() {
   $("#app").inert = false;
   drawerKind = null;
   selected = null;
+  if(calendarRefreshPending&&state&&accessMode!=='locked'){calendarRefreshPending=false;render();}
   restoreFocus(drawerOpener);
   drawerOpener = null;
 }
@@ -1091,6 +1109,15 @@ async function action(a) {
 function bind() {
   if (view === 'calendar' && !isWidget) {
     const actions = calendarTools();
+    const scope=()=>calendarScope(calendarSource,cloud.getStatus().calendars);
+    const addShared=(day,title='')=>{
+      const selected=scope();
+      if(!selected.shared||!selected.canCreate) return toast('Adding events is not allowed for this calendar.');
+      return sharing.editEvent(null,selected.calendar,{date:day,title,onSaved:()=>{
+        calendarDrafts.delete('shared:'+selected.calendar.id);
+        const form=$('#calendar-quick-add');if(form?.dataset.creationTarget==='shared:'+selected.calendar.id)form.elements.title.value='';
+      }});
+    };
     const quick = () => $('#calendar-quick-add input[name=title]')?.focus();
     bindCalendar({
       root: $('.calendar-workspace'), onError: error => toast(error.message),
@@ -1100,14 +1127,17 @@ function bind() {
         calendarDate = day; render();
         if (showDetails) { const panel = $('.cal-selected'); panel?.scrollIntoView({block:'nearest'}); panel?.focus({preventScroll:true}); }
       },
-      onAdd: day => { calendarDate = day; render(); $('#calendar-quick-add input[name=date]').value = day; quick(); },
-      onPlan: day => { calendarDate = day; editEvent(); },
+      onAdd: day => { calendarDate=day; if(scope().shared)return addShared(day); if(!scope().canCreate)return; render(); $('#calendar-quick-add input[name=date]').value = day; quick(); },
+      onPlan: day => { calendarDate=day; if(scope().shared)return addShared(day); if(scope().canCreate)editEvent(); },
       onStudy: (id, day) => {
         const task = state.tasks.find(t => t.id === id);
         if (!task || !canEdit(task)) return toast('This task is no longer editable.');
         calendarDate = day; editEvent(null,id);
       },
       onQuick: async input => {
+        if(scope().missing)return toast('Calendar access changed. Refresh or choose another calendar.');
+        if(scope().shared)return addShared(input.date,input.title);
+        if(!scope().canCreate)return toast('Choose My planner to add a task.');
         if (await actions.addDraft({...input,kind:state.preferences.defaultTaskKind || "Task"})) {
           $('#calendar-quick-add input[name=title]').value = '';
           quick();
@@ -1115,7 +1145,8 @@ function bind() {
       },
       onFilter: async (key, value) => {
         if (key === 'empty') { state.preferences.calendarAgendaEmpty = value; await save(); return; }
-        if (key === 'done') calendarShowDone = value; else if (key === 'focus') calendarFocus = value; else calendarSource = value; render();
+        if (key === 'done') calendarShowDone = value; else if (key === 'focus') calendarFocus = value; else {calendarSource=value; if(value.startsWith('shared:'))calendarFocus='all';} render();
+        if(key==='source')$('#calendar-picker-trigger')?.focus({preventScroll:true});
       },
       onAction: name => {
         if (name === 'clear') { calendarFocus = 'all'; calendarSource = 'all'; calendarShowDone = true; render(); }
@@ -1124,6 +1155,7 @@ function bind() {
         if (name === 'plan-prompt') planPrompt(document.querySelector('#calendar-quick-add [name=title]')?.value || '');
         if (name === 'connections') action('connections');
         if (name === 'shared') action('shared-calendars');
+        if (name === 'share-current') {const selected=scope(); if(accessMode!=='account')return munkaAccountPanel('Sign in to invite people or share a calendar.'); if(selected.shared)sharing.shareCalendar(selected.calendar).catch(error=>toast(error.message)); else action('shared-calendars');}
         if (name === 'import') actions.importSetup();
         if (name === 'details') editTask(null, Object.fromEntries(new FormData($('#calendar-quick-add'))));
       },
@@ -1406,6 +1438,7 @@ async function leaveAccount(switching) {
   }
 }
 function showAccountEntry(notice = '') {
+  calendarDrafts.clear(); calendarRefreshPending=false;
   cloud.stop();
   accessMode = 'locked'; closeDrawer(); state = null;
   cleanupEntry?.();
@@ -1416,6 +1449,8 @@ async function activatePlanner(status) {
   const next = await bridge.load();
   cleanupEntry?.(); cleanupEntry = null;
   accessMode = status.mode; accountStatus = status; state = next;
+  calendarDrafts.clear(); calendarRefreshPending=false;
+  calendarSource='all'; calendarFocus='all';
   calendarMode = ['day','week','month','agenda'].includes(state.preferences.calendarMode) ? state.preferences.calendarMode : 'month';
   render();
   if (!isWidget) {

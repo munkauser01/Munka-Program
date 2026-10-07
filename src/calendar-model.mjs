@@ -37,12 +37,14 @@ export function calendarItems(state, days, { showDone = true, source = 'all', fo
   const matches = item => focus === 'all' || (focus === 'personal' ? !item.course && !item.project : focus.startsWith('course:') ? item.course === focus.slice(7) : focus.startsWith('project:') && item.project === focus.slice(8));
   const active = activePlannerTasks(state).filter(t => (showDone || t.status !== 'Done') && matches(t));
   const ranges = days.map(day => ({ day, start: +new Date(day + 'T00:00:00'), end: +new Date(addDays(day, 1) + 'T00:00:00') }));
-  if (source === 'all' || source === 'tasks') {
+  if (source === 'all' || source === 'personal' || source === 'tasks') {
     for (const t of active) byDay.get(t.date)?.tasks.push(t);
   }
   if (source !== 'tasks') for (const event of state.events) {
-    if ((state.preferences.hiddenSharedCalendars || []).includes(event._sync?.space)) continue;
-    if(source.startsWith('shared:')) { if(event._sync?.space!==source.slice(7))continue; } else if (source !== 'all' && source !== (event.source || 'munka')) continue;
+    if (!source.startsWith('shared:') && (state.preferences?.hiddenSharedCalendars || []).includes(event._sync?.space)) continue;
+    if(source.startsWith('shared:')) { if(event._sync?.space!==source.slice(7))continue; }
+    else if(source === 'personal') { if(event._sync?.space || event.externalCalendar || !['munka',undefined,''].includes(event.source))continue; }
+    else if (source !== 'all' && (event._sync?.space || source !== (event.source || 'munka'))) continue;
     if (!matches(event.taskId ? taskIndex.get(event.taskId) || event : event)) continue;
     if (event.allDay) {
       const start = event.start.slice(0, 10), end = event.end?.slice(0, 10) || addDays(start, 1);
@@ -56,7 +58,7 @@ export function calendarItems(state, days, { showDone = true, source = 'all', fo
     group.tasks.sort(compareTasks);
     group.events.sort((a, b) => Number(b.allDay) - Number(a.allDay) || new Date(a.start) - new Date(b.start));
   }
-  return { byDay, unscheduled: (source === 'all' || source === 'tasks') ? active.filter(t => !t.date && t.status !== 'Done').sort(compareTasks) : [] };
+  return { byDay, unscheduled: (source === 'all' || source === 'personal' || source === 'tasks') ? active.filter(t => !t.date && t.status !== 'Done').sort(compareTasks) : [] };
 }
 
 // Merge occupied intervals so overlaps are not double-counted.

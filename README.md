@@ -2,6 +2,10 @@
 
 Planner for school and daily life. Your day, in sight.
 
+## Calendar picker update — 0.12.0-beta.3
+
+Calendar now has a searchable custom picker and visible contextual sharing action. Selected shared calendars are the creation destination, with separate private/shared drafts and permission-aware capture. Invitations use Can view / Can edit choices and individual editor permissions. [Picker and sharing guide](outputs/Calendar-Picker-0.12.0-beta.3.md). This Windows/web update reuses the existing Figma icon family; the new editable Figma component is blocked by the Starter MCP limit. Verified downloadable Mac packages below remain beta.2 until a new Mac build is completed.
+
 ## Mac and mobile beta — 0.12.0-beta.2
 
 The new source adds Mac build targets and an installable mobile web app. Installed Windows remains 0.11.7. Run `pnpm build:mobile` then `pnpm mobile` for the local phone-layout preview. Phone installation needs an HTTPS-hosted preview. Both Apple Silicon and Intel ZIP/DMG builds passed source and actual packaged-app smoke checks on macOS; downloads and verification are in the [beta guide](outputs/Mac-Mobile-Beta-0.12.0.md). The Mac beta has no Developer ID signing or notarization; physical installation acceptance is pending.

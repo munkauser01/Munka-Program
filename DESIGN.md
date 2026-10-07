@@ -317,6 +317,10 @@ Calendar entries have left-aligned titles and metadata. Their opening button spa
 
 Quick calendar capture places title, due date, Add task, and More options in one panel with 6px padding and the control stroke. Guided task and .ics imports reuse the detail drawer with a review before committing; imports describe local copies. Plan with Munka uses the optional account-gated Assistant workflow. The earlier calendar composition and acceptance evidence remain in `.impeccable/surfaces/calendar.md`; current refinement scope is in `.impeccable/surfaces/ui-refinement.md`.
 
+### Calendar picker and sharing — October 6, 2026
+
+The calendar-name trigger sits above capture, with grouped private/shared/provider choices, selected checkmark, access text and search. Its 44px trigger and 56px wrapping option rows use native typography, panel/tint fills and the exported Figma icon family. The popup uses the shared overlay shadow and a 160ms entry with reduced-motion support. A contextual sharing button is visible beside the page heading; import and connect stay in Calendar options. Sharing drawers group invitations, calendars and members with text role badges and native Can view / Can edit radio choices. The new editable Figma component is pending because the Starter MCP limit blocked its creation.
+
 ### Account entry
 
 Account entry retains the approved white, unboxed centered column capped at 400px, Segoe typography, original monkey, and sage controls. It uses its own readable light palette independent of the planner theme, with 44px buttons and fields. The sign-in gate preserves the current Today or Calendar capture draft in memory; Return to local planner restores the draft and focuses capture. Verified account entry resumes the pending Assistant intent. This is an in-session return path, not saved draft persistence across restart.

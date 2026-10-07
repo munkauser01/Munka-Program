@@ -6,6 +6,8 @@ Windows 11 desktop application with an Electron web renderer; Mac Electron and i
 October 5 platform beta: 0.12.0-beta.2 adds opt-in personal Supabase sync across devices, shared-calendar invitations and owner/editor/viewer roles with custom event permissions. The first-use/replay guide uses Figma-authored motion; account switching preserves separate local/account records. Mobile is a PWA for iPhone/Android with offline local planning. Phone background alerts, AI and live-provider connections remain pending. Mac targets Apple Silicon and Intel, with Windows overlays/wallpaper disabled; signing/notarization remain separate release work. Installed Windows stays 0.11.7. See outputs/Sync-Sharing-0.12.0.md and the earlier beta artifact guide.
 
 ## Audience and job
+
+October 6 calendar refinement: 0.12.0-beta.3 adds a searchable calendar picker above capture and a visible contextual Share & invite / Invite people / Calendar access action. Shared selection is the new-event target; creation reflects owner/editor/viewer permissions. Private/shared drafts remain separate and account changes reset selection. Figma Starter MCP quota prevented creating the new editable component; previously approved Figma icons are reused. See outputs/Calendar-Picker-0.12.0-beta.3.md. Downloadable verified Mac artifacts remain beta.2 unless updated by subsequent build evidence.
 An all-in-one planner for college students organizing school and daily life. Capture tasks quickly, plan study sessions independently from deadlines, keep courses and projects organized, and keep reminders visible.
 
 ## Approved requirements
