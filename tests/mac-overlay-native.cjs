@@ -68,6 +68,9 @@ app.whenReady().then(async () => {
     fs.writeFileSync(path.join(evidence, 'daily-desktop.png'), (await daily.webContents.capturePage()).toPNG());
     fs.writeFileSync(path.join(evidence, 'projects-desktop.png'), (await projects.webContents.capturePage()).toPNG());
     assert.equal((await daily.webContents.capturePage()).toBitmap()[3], 0, 'Native daily surface must preserve transparency');
+    main.hide(); await pause(250);
+    let desktopScreenshot = false;
+    try { execFileSync('/usr/sbin/screencapture', ['-x', path.join(evidence, 'mac-desktop.png')], { timeout: 3000 }); desktopScreenshot = fs.existsSync(path.join(evidence, 'mac-desktop.png')); } catch { /* Window captures remain required when screen capture is unavailable. */ }
     // Use the real Electron input path for task controls, not just DOM click().
     async function nativeClick(win, selector) {
       win.focus(); await until(() => win.isFocused(), Boolean, 'Overlay could not take keyboard focus');
@@ -145,8 +148,6 @@ app.whenReady().then(async () => {
     preferences = (await js('window.munka.load()')).preferences;
     assert.equal(preferences.widget, true); assert.equal(preferences.widgetProjects, false); assert.equal(restored.isDestroyed(), false);
     const native = await status(); assert.equal(native.windows.length, 1); assert.equal(native.windows[0].surface, 'daily');
-    let desktopScreenshot = false;
-    try { execFileSync('/usr/sbin/screencapture', ['-x', path.join(evidence, 'mac-desktop.png')], { timeout: 3000 }); desktopScreenshot = fs.existsSync(path.join(evidence, 'mac-desktop.png')); } catch { /* Headless CI may not grant screen capture. Window captures above are required. */ }
     const verification = { passed: true, platform: process.platform, arch: process.arch, packagedApp: false, physicalMacValidated: false, liveAuthentication: false, desktopScreenshot, checks: ['locked planner hides overlays', 'daily and projects actions through Electron input', 'native AppKit desktop and floating window levels', 'nonactivating all-Spaces panels', 'transparent captures and eight resize controls', 'movement and resize persistence', 'native click-through and menu bar recovery', 'close-to-background, menu bar and Dock focus restoration', 'independent off switches and saved-bounds recreation'], native };
     fs.writeFileSync(path.join(evidence, 'verification.json'), JSON.stringify(verification, null, 2));
     console.log(JSON.stringify(verification)); app.quit();
