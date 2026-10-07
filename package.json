@@ -1,6 +1,6 @@
 {
   "name": "munka-program",
-  "version": "0.12.0-beta.3",
+  "version": "0.12.0-beta.4",
   "private": true,
   "description": "Munka school and daily-life planner",
   "main": "electron/main.cjs",
@@ -20,6 +20,7 @@
   "devDependencies": {
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
+    "node-api-headers": "1.9.0",
     "prettier": "3.9.6"
   },
   "build": {
@@ -37,14 +38,18 @@
     ],
     "asarUnpack": [
       "electron/wallpaper.ps1",
-      "electron/overlay.ps1"
+      "electron/overlay.ps1",
+      "electron/native/*.node"
     ],
     "win": {
       "target": "nsis",
       "icon": "assets/munka.ico"
     },
     "mac": {
-      "target": ["zip", "dmg"],
+      "target": [
+        "zip",
+        "dmg"
+      ],
       "category": "public.app-category.productivity",
       "icon": "assets/app-512.png",
       "artifactName": "Munka-${version}-mac-${arch}.${ext}",

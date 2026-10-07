@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("munka", {
   // Sandboxed preloads cannot require local modules. Keep this small mirror in
   // parity with platform-policy.cjs (covered by the platform beta test).
-  capabilities: { platform: process.platform, desktop: true, overlays: process.platform === 'win32', wallpaper: process.platform === 'win32', notifications: true, syllabus: true, connections: true, ai: true },
+  capabilities: { platform: process.platform, desktop: true, overlays: ['win32', 'darwin'].includes(process.platform), wallpaper: process.platform === 'win32', launchAtLogin: process.platform === 'win32', notifications: true, syllabus: true, connections: true, ai: true },
   account: async (action, data) => {const r=await ipcRenderer.invoke('account',action,data);if(!r.ok)throw Error(r.error);return r.value;},
   cloud: async (action,data,user) => {const r=await ipcRenderer.invoke('cloud',action,data,user);if(!r.ok)throw Object.assign(Error(r.error),{code:r.code});return r.value;},
   localPlanner: () => ipcRenderer.invoke('local-planner'),

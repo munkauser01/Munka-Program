@@ -15,7 +15,7 @@ export function moreView({ heading, capabilities, dev }) {
       ['habits','Habits','Make room for your routines','habits'],
       ['review','Weekly review','Reflect and plan ahead','review'],
       ['settings','Settings','Account, appearance and backups','settings'],
-      ...(capabilities.overlays ? [['desktop','Desktop','Overlays and wallpaper','desktop']] : []),
+      ...(capabilities.overlays ? [['desktop','Desktop', capabilities.wallpaper ? 'Overlays and wallpaper' : 'Desktop overlays','desktop']] : []),
       ...(dev ? [['dev','Dev Mode','Advanced planner tools','dev']] : []),
     ].map(([id,label,description,glyph]) => `<button data-view="${id}">${icon(glyph)}<span><strong>${label}</strong><small>${description}</small></span>${icon('arrow')}</button>`).join('')}</div>`;
 }

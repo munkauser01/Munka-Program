@@ -107,7 +107,7 @@ let state,
   accountStatus = null;
 let accessMode = 'locked', cleanupEntry = null, accountReturn = null;
 let appVersion = { version: '0.12.0-beta.3', build: 'Mobile web beta' };
-let capabilities = platformCapabilities(window.munka ? 'win32' : 'web');
+let capabilities = window.munka?.capabilities || platformCapabilities('web');
 const isWidget = new URLSearchParams(location.search).has("widget");
 const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
 import { widgetModel, widgetTaskState } from './widget-model.mjs';
@@ -357,7 +357,7 @@ function settingsView() {
       <h2 class="section-block">Appearance</h2>
       <div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${['system','light','dark'].map(x => `<option ${p.theme === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       ${toggle('dev', 'Dev Mode', 'Show advanced views, dependencies, bulk actions, and automation tools.')}
-      ${capabilities.overlays ? `<div class="setting"><div><h3>Desktop overlays & wallpaper</h3><p>Choose what stays visible alongside your work.</p></div><button data-view="desktop">Open Desktop ${icon('arrow')}</button></div>` : ''}
+      ${capabilities.overlays ? `<div class="setting"><div><h3>Desktop overlays${capabilities.wallpaper ? ' & wallpaper' : ''}</h3><p>Choose what stays visible alongside your work.</p></div><button data-view="desktop">Open Desktop ${icon('arrow')}</button></div>` : ''}
       ${capabilities.notifications ? `<h2 class="section-block">Notifications</h2>
       <p class="muted small">${capabilities.platform === 'darwin' ? 'macOS notification and Focus settings' : 'Windows notification and Focus settings'} may silence alerts. Use the test below to check delivery.</p>
       <button data-action="test-notification">Send test notification</button>
@@ -397,7 +397,7 @@ function widgetAppearance() {
   const size = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
   return `<details class="widget-customize" ${widgetAppearanceOpen || !isWidget ? 'open' : ''}><summary>Appearance & position</summary><div class="widget-customize-body"><label for="widget-design">Background</label><select id="widget-design">${[['seamless','None · seamless'],['glass','Soft glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select>${design === 'seamless' ? `<label for="widget-ink">Lettering</label><select id="widget-ink"><option value="dark" ${state.preferences.widgetInk !== 'light' ? 'selected' : ''}>Dark · for light wallpaper</option><option value="light" ${state.preferences.widgetInk === 'light' ? 'selected' : ''}>Light · for dark wallpaper</option></select><p class="small muted">Only your tasks sit over your wallpaper. Choose Soft glass if the background makes text hard to read.</p>` : ''}<label for="widget-size">${isProjectsWidget ? 'Projects size' : 'Daily tasks size'}</label><select id="widget-size"><option value="compact" ${size === 'compact' ? 'selected' : ''}>Compact</option><option value="roomy" ${size === 'roomy' ? 'selected' : ''}>Roomy</option></select>
     ${!isWidget ? `<label for="projects-widget-size">Projects size</label><select id="projects-widget-size"><option value="compact" ${state.preferences.projectsWidgetSize !== 'roomy' ? 'selected' : ''}>Compact</option><option value="roomy" ${state.preferences.projectsWidgetSize === 'roomy' ? 'selected' : ''}>Roomy</option></select>` : ''}
-    ${isWidget ? toggle('privacy', 'Hide task details', 'Hide names on both widgets and wallpaper. Turn off to show them again.') : ''}
+    ${isWidget ? toggle('privacy', 'Hide task details', `Hide names on both widgets${capabilities.wallpaper ? ' and wallpaper' : ''}. Turn off to show them again.`) : ''}
     ${hiddenCount ? `<button class="quiet" data-widget-restore>Show hidden tasks (${hiddenCount})</button>` : ''}
     <p class="small muted">Drag an edge to adjust the size, or use these presets.</p>${isWidget && window.munka ? '<div class="widget-placement-controls"><button class="quiet" data-action="widget-position">Choose display</button><button data-overlay-adjust="move" aria-describedby="widget-keyboard-help">Move with arrows</button><button data-overlay-adjust="resize" aria-describedby="widget-keyboard-help">Resize with arrows</button></div><p id="widget-keyboard-help" class="small muted">Focus a move or resize button, then use arrow keys. Hold Shift for smaller steps.</p>' : ''}${isWidget ? toggle('widgetProjects', 'Show projects', 'Keep project work in its own overlay.') : ''}</div></details>`;
 }
@@ -438,7 +438,7 @@ function render() {
     document.body.dataset.widgetSize = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
     const showProjects = state.preferences.widgetProjects !== false;
     $("#app").innerHTML =
-      `${window.munka ? resizeHandles() : '<p class="widget-preview-note">Visual preview · Desktop movement works in the Windows app</p>'}<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="open-main" aria-label="Open full planner" title="Open planner">${icon("arrow")}</button>${window.munka ? `<button class="quiet" data-action="widget-off" aria-label="Hide this overlay" title="Hide overlay · restore from Desktop or tray">${icon('close')}</button>` : ''}</div></header><p class="muted small widget-position-help">${window.munka ? 'Drag here to move · Resize from an edge' : 'Your tasks, directly over your wallpaper'}</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><h1>Tasks and reminders</h1><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || (model.dailyHiddenCount ? '<p class="widget-empty">Your tasks are hidden from this widget.</p><button class="quiet" data-widget-restore>Show hidden tasks</button>' : '<p class="widget-empty">No tasks to show here. Open your planner to add work or see completed tasks.</p>')}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
+      `${window.munka ? resizeHandles() : '<p class="widget-preview-note">Visual preview · Desktop movement works in the Mac and Windows apps</p>'}<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="open-main" aria-label="Open full planner" title="Open planner">${icon("arrow")}</button>${window.munka ? `<button class="quiet" data-action="widget-off" aria-label="Hide this overlay" title="Hide overlay · restore from Desktop or ${capabilities.platform === 'darwin' ? 'menu bar' : 'tray'}">${icon('close')}</button>` : ''}</div></header><p class="muted small widget-position-help">${window.munka ? 'Drag here to move · Resize from an edge' : 'Your tasks, directly over your wallpaper'}</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><h1>Tasks and reminders</h1><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || (model.dailyHiddenCount ? '<p class="widget-empty">Your tasks are hidden from this widget.</p><button class="quiet" data-widget-restore>Show hidden tasks</button>' : '<p class="widget-empty">No tasks to show here. Open your planner to add work or see completed tasks.</p>')}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
     bind();
     restoreFocus(focusBefore);
     return;
@@ -452,7 +452,7 @@ function render() {
     habits: habitsView,
     review: reviewView,
     settings: settingsView,
-    desktop: () => capabilities.overlays ? desktopView({state, displays, heading, toggle, appearance: widgetAppearance, esc}) : heading('Desktop features', 'Overlays and wallpaper are available in the Windows app. Mac desktop integrations are planned after the core beta.', null),
+    desktop: () => capabilities.overlays ? desktopView({state, displays, capabilities, heading, toggle, appearance: widgetAppearance, esc}) : heading('Desktop features', 'Overlays are available in the Mac and Windows desktop apps.', null),
     more: () => moreView({heading, capabilities, dev: state.preferences.dev}),
     dev: devView,
   };
@@ -841,7 +841,7 @@ function showImport(mapping) {
         "Restore backup",
         `<p>This backup contains ${b.tasks.length} tasks, ${b.courses.length} courses, ${b.projects.length} projects, and ${b.habits.length} habits.</p><p>Restoring replaces the current planner. Export your current data first if you want to keep it.</p><label class="checkline"><input name="confirm" type="checkbox" required>Replace my current planner</label><div class="drawer-footer"><button class="primary">Restore backup</button></div>`,
         async () => {
-          if (state.preferences.wallpaper)
+          if (capabilities.wallpaper && state.preferences.wallpaper)
             await bridge.desktop("wallpaper-disable");
           const rev = state.revision;
           state = {
@@ -1089,6 +1089,7 @@ async function action(a) {
       case "widget-recover":
         return await bridge.desktop('widget-recover');
       case "wallpaper-preview": {
+        if (!capabilities.wallpaper) throw Error('Wallpaper reminders are available in the Windows app.');
         const preview = await bridge.desktop('wallpaper-preview');
         if (preview) drawer('Wallpaper preview', `<p class="small muted">Preview only. Your wallpaper has not changed.</p><img class="wallpaper-preview-image" alt="Wallpaper reminder preview" src="data:image/png;base64,${preview}">`);
         return;
@@ -1316,10 +1317,12 @@ function bind() {
         const k = b.dataset.toggle;
         try {
           if (k === 'launchAtLogin') {
+            if (!capabilities.launchAtLogin) throw Error('Starting at login is available in the Windows app.');
             await bridge.desktop('launch-at-login', !state.preferences.launchAtLogin);
             state = await bridge.load(); render(); return;
           }
           if (k === "wallpaper") {
+            if (!capabilities.wallpaper) throw Error('Wallpaper reminders are available in the Windows app.');
             await bridge.desktop(
               state.preferences.wallpaper
                 ? "wallpaper-disable"
@@ -1329,8 +1332,8 @@ function bind() {
             render();
             return;
           }
-          if (k === "widget" && !window.munka)
-            throw Error("Desktop widgets are available in the Windows app.");
+          if (['widget', 'widgetProjects', 'widgetClickThrough'].includes(k) && !capabilities.overlays)
+            throw Error("Desktop overlays are available in the Mac and Windows desktop apps.");
           state.preferences[k] = k === 'widgetProjects' ? state.preferences[k] === false : !state.preferences[k];
           if (k === "dev" && !state.preferences.dev) {
             if (view === "dev") view = "settings";
@@ -1523,7 +1526,7 @@ bridge.onAccessChange?.(next => { if(next.mode === 'locked' && !leavingAccount) 
 bridge.onOpenTask?.(id => { if(accessMode !== 'locked' && state?.tasks.some(task => task.id === id)) editTask(id); });
 try {
   if (bridge.version) appVersion = await bridge.version();
-  capabilities = appVersion.capabilities || platformCapabilities(appVersion.platform || (window.munka ? 'win32' : 'web'));
+  capabilities = appVersion.capabilities || window.munka?.capabilities || platformCapabilities(appVersion.platform || 'web');
   document.body.classList.toggle('platform-mac', capabilities.platform === 'darwin');
   if (!window.munka) await registerMobile();
   const theme = appVersion.theme || 'system';

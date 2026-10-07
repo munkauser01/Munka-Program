@@ -18,10 +18,10 @@ app.whenReady().then(async()=>{
     assert.equal(await js("!!document.querySelector('#munka-local')"),true);
     await js("document.querySelector('#munka-local').click()");await pause(300);
     assert.equal(await js("document.querySelector('h1').textContent"),'Home');
-    assert.equal(await js("document.querySelectorAll('[data-view=desktop]').length"),0);
-    assert.equal(BrowserWindow.getAllWindows().length,1);
+    assert.ok(await js("document.querySelectorAll('[data-view=desktop]').length") > 0);
     const version=await js('window.munka.version()');assert.equal(version.platform,'darwin');
-    assert.equal(version.capabilities.overlays,false);
+    assert.equal(version.capabilities.overlays,true);
+    assert.equal(version.capabilities.wallpaper,false);
     await js("document.querySelector('#quick-add [name=title]').value='Mac beta task';document.querySelector('#quick-add').requestSubmit()");await pause(350);
     let state=await js('window.munka.load()');assert.equal(state.tasks[0].title,'Mac beta task');
     await js("document.querySelector('[data-task]').click()");await pause(250);
@@ -30,9 +30,14 @@ app.whenReady().then(async()=>{
     await js("document.querySelector('[data-view=calendar]').click()");await pause(250);
     assert.equal(await js("!!document.querySelector('.calendar-workspace')"),true);
     await js("document.querySelector('[data-view=settings]').click()");await pause(250);
-    assert.equal(await js("document.querySelectorAll('[data-view=desktop]').length"),0);
+    await js("document.querySelector('[data-view=desktop]').click()");await pause(250);
+    assert.equal(await js("!!document.querySelector('#widget-layer')"),true);
+    assert.equal(await js("!!document.querySelector('#wallpaper-heading')"),false);
+    assert.equal(await js("!!document.querySelector('[data-action=wallpaper-preview]')"),false);
+    assert.equal(await js("!!document.querySelector('[data-toggle=launchAtLogin]')"),false);
     const output=path.resolve('outputs/mac-native-'+process.arch);fs.mkdirSync(output,{recursive:true});
-    fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,checks:['login/local gate','no Windows overlays','task create and edit','calendar','platform-aware settings'],liveAuthentication:false},null,2));
+    fs.writeFileSync(path.join(output,'planner.png'),(await main.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(output,'verification.json'),JSON.stringify({passed:true,platform:process.platform,arch:process.arch,checks:['login/local gate','task create and edit','calendar','Mac overlay controls without Windows wallpaper/startup'],liveAuthentication:false,physicalMacValidated:false},null,2));
     console.log(JSON.stringify({passed:true,platform:process.platform,arch:process.arch}));app.quit();
   }catch(error){console.error(error);app.exit(1);}
 });

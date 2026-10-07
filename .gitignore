@@ -1,4 +1,5 @@
 node_modules/
+electron/native/*.node
 work/
 outputs/release/
 outputs/release-current/

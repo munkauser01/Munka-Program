@@ -21,6 +21,7 @@ const capabilities = require('./platform-policy.cjs').platformPolicy();
 const { widgetBounds } = require('./widget-bounds.cjs');
 const { wallpaperContent, matchMonitor } = require('./wallpaper-model.cjs');
 const { createOverlayController } = require('./overlay-controller.cjs');
+const { createMacOverlayController } = require('./mac-overlay-controller.cjs');
 const { EDGES, overlayLayer, overlayWindowOptions, resizedOverlay, stayInBackground } = require('./overlay-policy.cjs');
 let overlayController;
 let aiService;
@@ -188,10 +189,9 @@ function overlaySurfaces() {
   return [widget, projectsWidget].filter(win => win && !win.isDestroyed());
 }
 function nativeOverlayUpdate() {
-  if (quitting || process.platform !== 'win32') return;
+  if (quitting || !capabilities.overlays) return;
   if (!overlayController) {
-    overlayController = createOverlayController({
-      script: app.isPackaged ? path.join(process.resourcesPath, 'app.asar.unpacked', 'electron', 'overlay.ps1') : path.join(__dirname, 'overlay.ps1'),
+    const callbacks = {
       onError(error) {
         if (quitting || !state || state.preferences.overlayError === error.message) return;
         state.preferences.overlayError = error.message; saveInternal();
@@ -199,9 +199,15 @@ function nativeOverlayUpdate() {
       onReady() {
         if (state?.preferences.overlayError) { state.preferences.overlayError = ''; saveInternal(); }
       },
-    });
+    };
+    overlayController = process.platform === 'darwin'
+      ? createMacOverlayController(callbacks)
+      : createOverlayController({ ...callbacks,
+        script: app.isPackaged ? path.join(process.resourcesPath, 'app.asar.unpacked', 'electron', 'overlay.ps1') : path.join(__dirname, 'overlay.ps1') });
   }
   overlayController.update(overlaySurfaces().filter(win => win.munkaOverlayReady).map(win => {
+    if (process.platform === 'darwin') return { win,
+      surface: win === projectsWidget ? 'projects' : 'daily', layer: overlayLayer(state.preferences) };
     const handle = win.getNativeWindowHandle();
     return {
       surface: win === projectsWidget ? 'projects' : 'daily',
@@ -221,7 +227,10 @@ function rememberOverlay(win, surface) {
 }
 function createOverlay(surface, bounds) {
   const isProject = surface === 'projects';
-  const win = new BrowserWindow(options(overlayWindowOptions(bounds, isProject ? 'Munka projects overlay' : 'Munka daily overlay')));
+  const win = new BrowserWindow(options({
+    ...overlayWindowOptions(bounds, isProject ? 'Munka projects overlay' : 'Munka daily overlay'),
+    ...(process.platform === 'darwin' ? { type: 'panel', acceptFirstMouse: true } : {}),
+  }));
   secure(win);
   let timer;
   const remember = () => {
@@ -237,18 +246,25 @@ function createOverlay(surface, bounds) {
   win.once('ready-to-show', () => {
     if (win.isDestroyed()) return;
     win.munkaOverlayReady = true;
+    nativeOverlayUpdate();
     // Show without taking focus away from the planner or whatever the user is typing.
     if (!process.env.MUNKA_TEST_DATA) win.showInactive();
     rememberOverlay(win, surface);
     nativeOverlayUpdate();
   });
+  // AppKit can reorder a panel when shown or focused. Restore the selected
+  // native level without activating the planner or changing mouse behavior.
+  if (process.platform === 'darwin') {
+    win.on('show', () => { if (win.munkaOverlayReady) nativeOverlayUpdate(); });
+    win.on('focus', () => { if (win.munkaOverlayReady) nativeOverlayUpdate(); });
+  }
   win.webContents.on('render-process-gone', () => {
-    state.preferences.overlayError = 'An overlay stopped responding. Use Recover widgets in the Munka tray menu.';
+    state.preferences.overlayError = `An overlay stopped responding. Use Recover widgets in the Munka ${process.platform === 'darwin' ? 'menu bar' : 'tray menu'}.`;
     saveInternal();
   });
   win.loadFile(path.join(root, 'src/index.html'), { query: { widget: isProject ? 'projects' : '1' } }).catch(() => {
     if (win.isDestroyed() || accessMode === 'locked') return;
-    state.preferences.overlayError = 'An overlay could not load. Use Recover widgets in the Munka tray menu.';
+    state.preferences.overlayError = `An overlay could not load. Use Recover widgets in the Munka ${process.platform === 'darwin' ? 'menu bar' : 'tray menu'}.`;
     saveInternal();
   });
   win.on('close', () => {
@@ -270,6 +286,7 @@ function syncWidget() {
     if (widget && !widget.isDestroyed()) widget.destroy();
     if (projectsWidget && !projectsWidget.isDestroyed()) projectsWidget.destroy();
     widget = null; projectsWidget = null;
+    nativeOverlayUpdate(); updateTray();
     return;
   }
   syncProjectsWidget();
@@ -283,6 +300,9 @@ function syncWidget() {
 }
 function widgetMaterial(win) {
   win.setBackgroundColor('#00000000');
+  // AppKit does not resign an already-key panel when focusability is disabled.
+  // Click-through must release both keyboard and mouse input.
+  if (process.platform === 'darwin' && state.preferences.widgetClickThrough && win.isFocused()) win.blur();
   win.setIgnoreMouseEvents(state.preferences.widgetClickThrough === true, { forward: true });
   // Focus remains available for keyboard navigation; click-through removes focus
   // only until the explicit tray recovery command restores interaction.
@@ -687,7 +707,9 @@ app.whenReady().then(async () => {
       setOverlayPreference(value === 'projects' ? 'widgetProjects' : 'widget', false);
       return true;
     }
-    if (action === 'overlay-status') return { ready: overlayController?.ready === true, layer: overlayLayer(state.preferences), windows: overlayController?.windows || [], error: state.preferences.overlayError || '' };
+    if (action === 'overlay-status') return { platform: process.platform, ready: overlayController?.ready === true, layer: overlayLayer(state.preferences), windows: overlayController?.windows || [], error: state.preferences.overlayError || '' };
+    if (!capabilities.wallpaper && action.startsWith('wallpaper-'))
+      throw Error('Wallpaper reminders are available in the Windows app.');
     if (action === 'launch-at-login') {
       if (typeof value !== 'boolean') throw Error('Choose whether Munka should start with Windows.');
       if (process.platform !== 'win32' || !app.isPackaged || process.env.MUNKA_TEST_DATA) throw Error('Start with Windows is available in the installed Windows app.');
@@ -862,6 +884,11 @@ app.whenReady().then(async () => {
     if (projectsWidget) rememberOverlay(projectsWidget, 'projects');
     nativeOverlayUpdate();
   });
+  if (process.platform === 'darwin') {
+    powerMonitor.on('resume', nativeOverlayUpdate);
+    powerMonitor.on('unlock-screen', nativeOverlayUpdate);
+    screen.on('display-added', nativeOverlayUpdate);
+  }
   setInterval(() => {
     if (accessMode === 'locked') return;
     const now = new Date();

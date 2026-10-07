@@ -8,6 +8,7 @@ if (!fs.existsSync(executable)) {
   console.error('Munka runtime is missing. Install dependencies before launching.');
   process.exitCode = 1;
 } else {
+  if (process.platform === 'darwin') require('./build-mac-overlay.cjs').buildMacOverlay();
   const environment = { ...process.env };
   delete environment.ELECTRON_RUN_AS_NODE;
   const child = spawn(executable, [root], {

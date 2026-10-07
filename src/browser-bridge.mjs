@@ -130,7 +130,7 @@ export function createBrowserBridge({ storage = localStorage, config = webConfig
     },
     onChange: listener => { changeListeners.add(listener); return () => changeListeners.delete(listener); },
     onAccessChange: listener => { accessListeners.add(listener); return () => accessListeners.delete(listener); },
-    desktop: async action => { if (action === 'displays') return []; throw Error('Desktop features are available in the Windows app.'); },
+    desktop: async action => { if (action === 'displays') return []; throw Error('Desktop overlays are available in the Mac and Windows desktop apps.'); },
     exportFile: async (text, extension) => {
       requireOpen();
       if (!['json', 'csv'].includes(extension)) throw Error('Choose a supported export format.');

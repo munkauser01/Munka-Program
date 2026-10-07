@@ -8,6 +8,7 @@ if (process.platform !== 'darwin') {
 const arch = process.argv[2] || process.arch;
 if (!['arm64', 'x64'].includes(arch)) throw Error('Choose arm64 (Apple Silicon) or x64 (Intel).');
 if (arch !== process.arch) throw Error('Use a matching Mac/CI runner for this architecture so native dependencies are correct.');
+require('./build-mac-overlay.cjs').buildMacOverlay({ arch });
 require('./prepare-assets.cjs'); require('./prepare-calendar.cjs');
 fs.mkdirSync(path.join(root, 'work'), { recursive: true });
 const stage = fs.mkdtempSync(path.join(root, 'work', 'mac-package-'));
