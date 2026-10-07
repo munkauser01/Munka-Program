@@ -1,0 +1,42 @@
+body.account-entry-page { --bg: #fff; --panel: #fff; --nav: #f7f8f7; --ink: #202820; --muted: #5d675f; --line: #d9dfda; --accent: #526c42; --tint: #f0f4ed; --danger: #9b352b; --nav-icon-ink: #151916; background: #fff; color: var(--ink); color-scheme: light; }
+.account-entry { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 30px 24px; }
+.entry-form-wrap { width: 100%; max-width: 400px; }
+.entry-heading { text-align: center; }
+.entry-logo { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 24px; font-weight: 650; letter-spacing: -.5px; margin-bottom: 12px; }
+body.account-entry-page .entry-logo img { width: 28px; height: 36px; object-fit: contain; filter: none; }
+.entry-heading h1 { font-size: 28px; letter-spacing: -.6px; margin: 0 0 8px; line-height: 1.2; }
+.entry-lead { color: var(--muted); line-height: 1.5; margin: 0 0 16px; font-size: 14px; }
+.account-entry button { min-height: 44px; }
+.entry-google, .entry-submit, #munka-local { width: 100%; }
+.entry-provider-note, .entry-help, .entry-data-note, .entry-version { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.entry-provider-note { margin: 8px 0 12px; text-align: center; }
+.entry-divider { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+.entry-divider::before, .entry-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.account-entry .field { margin-bottom: 14px; }
+.account-entry .field > span { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; }
+.account-entry input { text-align: left !important; min-height: 44px; border-color: #87938a; }
+.entry-password { position: relative; }
+.entry-password input { padding-right: 52px; }
+.entry-password button { position: absolute; right: 2px; top: 0; width: 44px; padding: 10px; }
+.entry-password svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.65; }
+.entry-help { margin: -6px 0 14px; }
+.entry-error { color: var(--danger); font-size: 14px; line-height: 1.5; }
+.entry-message { color: var(--ink); font-size: 14px; line-height: 1.5; }
+.entry-error:empty, .entry-message:empty { display: none; }
+.entry-switch { text-align: center; font-size: 14px; margin: 4px 0 14px; }
+.entry-switch button { color: var(--accent); padding-inline: 4px; font-weight: 600; }
+.entry-local { border-top: 1px solid var(--line); padding-top: 18px; }
+.entry-local h2 { font-size: 15px; margin: 0 0 8px; font-weight: 600; text-align: center; }
+.entry-local p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); text-align: center; }
+.entry-about { text-align: center; margin-top: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.entry-about > p { margin: 0 0 8px; }
+.entry-version { display: block; margin-top: 8px; }
+/* Established planner refinements, outside the entry's white theme scope. */
+body input:is([type=text], [type=email], [type=password], [type=search], [type=url], :not([type])), body textarea { text-align: left; }
+.mainwrap, .workspace > *, .setting > div, .task-row > *, .capture input { min-width: 0; }
+.capture { flex-wrap: wrap; }
+.capture input { flex: 1 1 200px; }
+.drawer-footer, .topbar .right { flex-wrap: wrap; }
+.local { line-height: 1.5; overflow-wrap: anywhere; }
+.setting p { line-height: 1.5; }
+@media (max-height: 700px) { .account-entry { align-items: flex-start; padding-block: 24px; } }

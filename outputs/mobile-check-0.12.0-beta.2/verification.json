@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "Signup confirmation keeps planner gated",
+    "Touch capture and full-screen task editor save",
+    "All calendar modes keep overflow within the calendar scroller",
+    "All secondary destinations reachable; unavailable desktop settings omitted",
+    "Device records survive reload",
+    "Installed shell reloads offline and persists new tasks",
+    "SDK email login works against intercepted API; no tokens persisted; account records isolated"
+  ],
+  "errors": [],
+  "liveAuthentication": false,
+  "realPhoneValidated": false,
+  "macRuntimeValidated": false
+}

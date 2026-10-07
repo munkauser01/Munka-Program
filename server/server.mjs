@@ -7,14 +7,16 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createManagedPlanner } from './ai-planner.mjs';
 
 const digest = (s) => createHash("sha256").update(s).digest("hex");
 export function createServer({
   dbPath = "work/sync.sqlite",
   allowRegistration = false,
+  ai = {},
 } = {}) {
   mkdirSync(dirname(resolve(dbPath)), { recursive: true });
   const db = new DatabaseSync(dbPath);
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS members(project TEXT NOT NULL,userId TEXT NOT NULL,ro
 CREATE TABLE IF NOT EXISTS invitations(code TEXT PRIMARY KEY,project TEXT NOT NULL,email TEXT NOT NULL,role TEXT NOT NULL,expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS history(id INTEGER PRIMARY KEY,recordId TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,actor TEXT NOT NULL,at TEXT NOT NULL);
 `);
+  const planner = createManagedPlanner({db, ...ai});
   const attempts = new Map();
   const validKinds = [
     "tasks",
@@ -93,7 +96,7 @@ CREATE TABLE IF NOT EXISTS history(id INTEGER PRIMARY KEY,recordId TEXT NOT NULL
         let raw = "";
         for await (const chunk of req) {
           raw += chunk;
-          if (raw.length > 2_000_000) fail(413, "Request too large.");
+          if (Buffer.byteLength(raw) > (req.url?.startsWith('/ai/') ? 64000 : 2_000_000)) fail(413, "Request too large.");
         }
         try {
           body = JSON.parse(raw || "{}");
@@ -177,7 +180,11 @@ CREATE TABLE IF NOT EXISTS history(id INTEGER PRIMARY KEY,recordId TEXT NOT NULL
             : null;
         if (!session) fail(401, "Sign in to continue.");
         const user = session.userId;
-        if (url.pathname === "/auth/logout") {
+        if (url.pathname === '/ai/status' && req.method === 'GET') {
+          result = planner.status(user);
+        } else if (url.pathname === '/ai/plan' && req.method === 'POST') {
+          result = await planner.propose(user, body);
+        } else if (url.pathname === "/auth/logout") {
           db.prepare("DELETE FROM sessions WHERE token=?").run(digest(token));
           result = { ok: true };
         } else if (url.pathname === "/records" && req.method === "GET") {
@@ -357,6 +364,7 @@ CREATE TABLE IF NOT EXISTS history(id INTEGER PRIMARY KEY,recordId TEXT NOT NULL
       res.writeHead(e.status || 500);
       res.end(
         JSON.stringify({
+          ...(['ai_billing_unavailable','ai_auth_unavailable','ai_model_unavailable','ai_provider_busy'].includes(e.code)?{code:e.code}:{}),
           error: e.status
             ? e.message
             : "The service could not complete the request.",
@@ -375,6 +383,7 @@ if (
   createServer({
     dbPath: process.env.MUNKA_DB || "work/sync.sqlite",
     allowRegistration: process.env.MUNKA_ALLOW_REGISTRATION === "true",
+    ai: {apiKey: process.env.OPENAI_API_KEY_FILE ? readFileSync(process.env.OPENAI_API_KEY_FILE,'utf8').trim() : process.env.OPENAI_API_KEY || '', globalDailyLimit: Number(process.env.MUNKA_AI_GLOBAL_DAILY_LIMIT || 100)},
   }).listen(port, process.env.HOST || "127.0.0.1", () =>
     console.log(`Munka sync listening on ${port}`),
   );

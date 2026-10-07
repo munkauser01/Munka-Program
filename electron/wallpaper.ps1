@@ -30,4 +30,3 @@ elseif($Action -eq 'restore'){
   }else{[Wallpaper]::Set($item.Id,$item.Path)}
  }
 }
-

@@ -12,4 +12,3 @@ if (fs.existsSync(source)) {
       Buffer.from(data, "base64"),
     );
 }
-

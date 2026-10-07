@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { initialState, task } from '../src/domain.mjs';
+import { createCloudSync, personalBody, mergePersonal } from '../src/cloud-sync.mjs';
+const clone=value=>structuredClone(value);
+function network(){let revision=0,body=null,offline=false;return {setOffline:value=>offline=value,read:()=>({revision,body:clone(body)}),async rpc(action,data){if(offline)throw Error('Offline');if(action==='planner_read')return this.read();if(action==='planner_write'){if(data.revision!==revision)throw Object.assign(Error('Cloud planner changed; merge before saving'),{code:'40001'});body=clone(data.body);return {revision:++revision,body:clone(body)};}if(action==='calendar_list')return {calendars:[],events:[]};if(action==='invitation_list')return [];throw Error(action);}};}
+function device(server){let state=initialState();const bridge={load:async()=>clone(state),save:async(next,revision)=>{assert.equal(revision,state.revision);state={...clone(next),revision:revision+1};return clone(state);},cloud:(action,data)=>server.rpc(action,data)};return {cloud:createCloudSync({bridge}),bridge,get:()=>clone(state),edit:callback=>{callback(state);state.revision++;}};}
+test('personal payload excludes shared/provider events, tokens and device settings',()=>{const state=initialState();state.events=[{id:'shared',_sync:{space:'c'}},{id:'provider',externalCalendar:{provider:'google'}},{id:'mine',title:'Personal'}];state.preferences.launchAtLogin=true;state.sync.account={token:'never-upload'};state.cloudSync={base:{privateMetadata:true}};const body=personalBody(state);assert.deepEqual(body.events,[{id:'mine',title:'Personal'}]);assert.equal(body.preferences.launchAtLogin,undefined);assert.equal(body.sync,undefined);assert.equal(body.cloudSync,undefined);});
+test('PC, Mac and phone merge independent edits, offline edits and remote deletes',async()=>{const server=network(),pc=device(server),mac=device(server),phone=device(server);try{for(const d of [pc,mac,phone])await d.cloud.start('account');pc.edit(state=>state.tasks.push(task({id:'one',title:'PC task'})));await pc.cloud.enable();await mac.cloud.enable();await phone.cloud.enable();assert.equal(phone.get().tasks[0].title,'PC task');server.setOffline(true);phone.edit(state=>state.tasks.push(task({id:'phone',title:'Offline phone task'})));await phone.cloud.sync();assert.match(phone.cloud.getStatus().message,/Offline/);server.setOffline(false);mac.edit(state=>state.tasks.push(task({id:'mac',title:'Mac task'})));await mac.cloud.sync();await phone.cloud.sync();await pc.cloud.sync();assert.deepEqual(new Set(pc.get().tasks.map(item=>item.id)),new Set(['one','mac','phone']));pc.edit(state=>state.tasks=state.tasks.filter(item=>item.id!=='one'));await pc.cloud.sync();await phone.cloud.sync();assert.ok(!phone.get().tasks.some(item=>item.id==='one'));}finally{for(const d of [pc,mac,phone])d.cloud.stop();}});
+test('same-record conflicts preserve both versions until the user resolves them',async()=>{const server=network(),pc=device(server),phone=device(server);try{await pc.cloud.start('account');pc.edit(state=>state.tasks.push(task({id:'same',title:'Original'})));await pc.cloud.enable();await phone.cloud.start('account');await phone.cloud.enable();pc.edit(state=>state.tasks[0].title='PC edit');phone.edit(state=>state.tasks[0].title='Phone edit');await pc.cloud.sync();await phone.cloud.sync();assert.equal(phone.cloud.getStatus().conflicts.length,1);assert.equal(phone.get().cloudSync.conflicts[0].local.title,'Phone edit');assert.equal(server.read().body.tasks[0].title,'PC edit');await phone.cloud.resolve(0,'local');await pc.cloud.sync();assert.equal(pc.get().tasks[0].title,'Phone edit');assert.equal(phone.get().cloudSync.conflicts.length,0);}finally{pc.cloud.stop();phone.cloud.stop();}});
+test('edit versus delete creates a reviewable conflict, not an automatic resurrection',()=>{const base=personalBody(initialState());base.tasks=[task({id:'x',title:'Original'})];const mine=clone(base),remote=clone(base);mine.tasks[0].title='Edited';remote.tasks=[];const merged=mergePersonal(base,mine,remote);assert.equal(merged.conflicts[0].remote,null);assert.equal(merged.conflicts[0].local.title,'Edited');});
+test('revoked shared events are removed from the device cache on refresh',async()=>{const server=network(),d=device(server);d.edit(state=>state.events.push({id:'shared',title:'Old access',start:'2026-10-05',end:'2026-10-06',_sync:{space:'revoked'}}));try{await d.cloud.start('account');assert.equal(d.get().events.length,0);}finally{d.cloud.stop();}});
+test('personal sync does not upload before explicit enablement',async()=>{const server=network(),d=device(server);try{d.edit(state=>state.tasks.push(task({id:'private',title:'Device only'})));await d.cloud.start('account');assert.equal(server.read().revision,0);}finally{d.cloud.stop();}});
+test('switching accounts discards an old in-flight calendar response and starts the new account',async()=>{
+  let release,oldRequested=false;const server=network(),d=device(server),original=d.bridge.cloud;
+  d.bridge.cloud=(action,data,user)=>{if(action==='calendar_list'&&user==='old'){oldRequested=true;return new Promise(resolve=>release=resolve);}return original(action,data,user);};
+  try{const old=d.cloud.start('old');while(!oldRequested)await new Promise(resolve=>setImmediate(resolve));await d.cloud.start('new');release({calendars:[{id:'old-private'}],events:[]});await old;assert.deepEqual(d.cloud.getStatus().calendars,[]);assert.equal(d.cloud.getStatus().busy,false);}finally{d.cloud.stop();}
+});
+test('background personal commits keep the renderer revision current without calendar metadata changes',async()=>{
+  const server=network();let stored=initialState(),rendered=clone(stored),notifications=0;
+  const bridge={load:async()=>clone(stored),save:async(next,revision)=>{
+    assert.equal(revision,stored.revision,'Renderer saves must use the latest local revision');
+    stored={...clone(next),revision:revision+1};return clone(stored);
+  },cloud:(action,data)=>server.rpc(action,data)};
+  const cloud=createCloudSync({bridge,onPlannerChange:(next,identity)=>{assert.equal(identity,'account');rendered=next;notifications++;}});
+  try{
+    await cloud.start('account');await cloud.enable();
+    rendered.preferences.calendarMode='day';rendered=await bridge.save(rendered,rendered.revision);
+    await cloud.sync();
+    assert.equal(rendered.revision,stored.revision);assert.ok(notifications>=3);
+    rendered.preferences.calendarMode='week';await bridge.save(rendered,rendered.revision);
+    assert.equal(stored.preferences.calendarMode,'week');
+  }finally{cloud.stop();}
+});
+test('a completed cloud commit cannot notify the renderer after its account generation stops',async()=>{
+  const server=network(),notifications=[];let stored=initialState(),release,started;
+  const saving=new Promise(resolve=>started=resolve);
+  const bridge={load:async()=>clone(stored),save:async(next,revision)=>{
+    assert.equal(revision,stored.revision);stored={...clone(next),revision:revision+1};
+    started();return new Promise(resolve=>release=()=>resolve(clone(stored)));
+  },cloud:(action,data)=>server.rpc(action,data)};
+  const cloud=createCloudSync({bridge,onPlannerChange:(next,identity)=>notifications.push({next,identity})});
+  try{
+    await cloud.start('old-account');const pending=cloud.enable();await saving;
+    cloud.stop();release();await pending;assert.deepEqual(notifications,[]);
+  }finally{cloud.stop();}
+});

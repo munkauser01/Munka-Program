@@ -5,15 +5,31 @@ import {
   dateKey,
   addDays,
   complete,
-  blocked,
   runRules,
   validateBackup,
   csvPreview,
   parseCSV,
-  parseICS,
   exportCSV,
   overlaps,
 } from "./domain.mjs";
+import { plannerRenderModel, filteredPlannerTasks } from './planner-render-model.mjs';
+import { compareTasks } from './task-order.mjs';
+import { openDayPlan, workloadSummary } from './workload-dialog.mjs';
+import { accountMenu } from './account-menu.mjs';
+import { icon } from './icons.mjs';
+import { createBrowserBridge } from './browser-bridge.mjs';
+import { createCloudSync } from './cloud-sync.mjs';
+import { sharingDialogs } from './sharing-dialogs.mjs';
+import { platformCapabilities } from './platform.mjs';
+import { mobileNavigation, moreView, bindMobile, registerMobile } from './mobile.mjs';
+import { taskForm } from './task-form.mjs';
+import { mountAccountEntry } from './account-entry.mjs';
+import { openOnboarding } from './onboarding.mjs';
+import { openProductGuide } from './product-guide.mjs';
+import { openSyllabus } from './syllabus-dialog.mjs';
+import { openCalendarConnections } from './calendar-connections.mjs';
+import { effort } from './workload.mjs';
+import { openBatchTasks } from './batch-task-dialog.mjs';
 const $ = (q, el = document) => el.querySelector(q),
   $$ = (q, el = document) => [...el.querySelectorAll(q)];
 const esc = (s) =>
@@ -24,30 +40,7 @@ const esc = (s) =>
         c
       ],
   );
-const paths = {
-  today:
-    "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
-  calendar: "M8 2v4m8-4v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2",
-  courses:
-    "M3 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-2H3V4zm18 0h-6a3 3 0 0 0-3 3v14a4 4 0 0 1 4-2h5V4z",
-  projects: "M3 6V4h7l2 3h9v13H3V6z",
-  habits: "m5 12 4 4L19 6M21 12a9 9 0 1 1-9-9",
-  settings:
-    "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2",
-  search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
-  plus: "M12 5v14M5 12h14",
-  check: "m5 12 4 4L19 6",
-  close: "m6 6 12 12M6 18 18 6",
-  arrow: "m9 5 7 7-7 7",
-  clock: "M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0",
-  dev: "m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16",
-  review: "M4 20V10m6 10V4m6 16v-8m6 8V2",
-  desktop: "M3 3h18v13H3V3zm9 13v5m-5 0h10",
-  inbox: "M4 4h16l2 12v4H2v-4L4 4zm-2 12h6l2 2h4l2-2h6",
-};
-const icon = (n) =>
-  `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="${paths[n] || paths.inbox}"/></svg>`;
-let syncBusy = false,
+let renderModel,
   widgetAppearanceOpen = false,
   drawerOpener = null;
 function focusIdentity(el = document.activeElement) {
@@ -59,6 +52,9 @@ function focusIdentity(el = document.activeElement) {
     "data-task",
     "data-complete",
     "data-event",
+    "data-cal-select",
+    "data-cal-action",
+    "data-calendar-mode",
     "data-toggle",
     "aria-label",
   ];
@@ -100,57 +96,44 @@ let state,
   courseFilter = "",
   calendarMode = "week",
   calendarDate = dateKey(),
+  calendarShowDone = true,
+  calendarSource = 'all',
+  calendarFocus = 'all',
   drawerKind = null,
   toastTimer,
   importData = null,
   bulk = new Set(),
   displays = [],
-  syncClient;
-let appVersion = { version: '0.2.0', build: 'Browser preview' };
+  accountStatus = null;
+let accessMode = 'locked', cleanupEntry = null, accountReturn = null;
+let appVersion = { version: '0.12.0-beta.3', build: 'Mobile web beta' };
+let capabilities = window.munka?.capabilities || platformCapabilities('web');
 const isWidget = new URLSearchParams(location.search).has("widget");
 const isProjectsWidget = new URLSearchParams(location.search).get('widget') === 'projects';
-import { widgetModel } from './widget-model.mjs';
-const bridge = window.munka || {
-  load: async () => {
-    try {
-      return validateBackup(JSON.parse(localStorage.getItem("munka")));
-    } catch {
-      return initialState();
-    }
-  },
-  save: async (s) => {
-    s.revision++;
-    localStorage.setItem("munka", JSON.stringify(s));
-    return s;
-  },
-  exportFile: async (text, ext) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-    a.download = `Munka-${dateKey()}.${ext}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    return true;
-  },
-  importFile: () =>
-    new Promise((resolve) => {
-      const i = document.createElement("input");
-      i.type = "file";
-      i.accept = ".json,.csv,.ics";
-      i.onchange = async () =>
-        resolve(
-          i.files[0]
-            ? { name: i.files[0].name, text: await i.files[0].text() }
-            : null,
-        );
-      i.oncancel = () => resolve(null);
-      i.click();
-    }),
-  desktop: async (action) => {
-    if (action === "displays") return [];
-    throw Error("Open the Windows app to use desktop features.");
-  },
-  onChange: () => {},
-};
+import { widgetModel, widgetTaskState } from './widget-model.mjs';
+import { desktopView } from './desktop-view.mjs';
+import { resizeHandles, bindOverlayControls } from './widget-controls.mjs';
+import { calendarView as renderCalendar, bindCalendar } from './calendar-view.mjs';
+import { calendarScope } from './calendar-picker.mjs';
+import { calendarActions } from './calendar-dialogs.mjs';
+import { aiActions } from './ai-dialogs.mjs';
+import { calendarColors, validCalendarColor } from './calendar-colors.mjs';
+const bridge = window.munka || createBrowserBridge();
+let calendarStatusKey='', calendarRefreshPending=false;
+const calendarDrafts=new Map();
+const cloud = createCloudSync({bridge,onPlannerChange:(next,identity)=>{
+  if(accessMode!=='account'||accountStatus?.id!==identity||!state||next.revision<state.revision)return;
+  state=next;
+  if($('.drawer'))calendarRefreshPending=true;else render();
+},onStatus:status=>{
+  const el=$('#cloud-sync-status');if(el)el.textContent=status.message;
+  const key=JSON.stringify([status.calendars,status.invitations]);
+  if(key===calendarStatusKey)return;
+  calendarStatusKey=key;
+  if(accessMode!=='account'||!state)return;
+  if(view==='calendar') {if($('.drawer'))calendarRefreshPending=true;else render();}
+}});
+const sharing = sharingDialogs({...extensionTools(),cloud});
 function toast(message, action) {
   const el = $("#toast");
   el.innerHTML = `<span>${esc(message)}</span>${action ? '<button id="toast-action">Undo</button>' : ""}`;
@@ -164,8 +147,9 @@ function toast(message, action) {
 }
 async function save() {
   try {
-    state = await bridge.save(state, state.revision);
+    state = await bridge.save(state, state.revision, isWidget ? undefined : accessMode==='account' ? accountStatus.id : null);
     render();
+    cloud.changed();
     return true;
   } catch (e) {
     state = await bridge.load();
@@ -175,49 +159,13 @@ async function save() {
   }
 }
 function activeTasks() {
-  return state.tasks.filter(
-    (t) =>
-      !state.courses.some(
-        (c) =>
-          c.id === t.course &&
-          state.terms.some((x) => x.id === c.term && x.archived),
-      ),
-  );
+  return renderModel.active;
 }
 function canEdit(t) {
-  return t?._sync?.role !== "viewer";
+  return !t?.externalCalendar && t?._sync?.role !== "viewer";
 }
 function filtered() {
-  return activeTasks()
-    .filter(
-      (t) =>
-        (filter === "all" ||
-          (filter === "done"
-            ? t.status === "Done"
-            : filter === "high"
-              ? t.priority === "High" && t.status !== "Done"
-              : filter === "blocked"
-                ? blocked(state, t)
-                : t.status !== "Done")) &&
-        (!courseFilter ||
-          t.course === courseFilter ||
-          t.project === courseFilter) &&
-        (!query ||
-          [
-            t.title,
-            t.notes,
-            state.courses.find((c) => c.id === t.course)?.name,
-            state.projects.find((p) => p.id === t.project)?.name,
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(query.toLowerCase())),
-    )
-    .sort(
-      (a, b) =>
-        (a.date || "9999").localeCompare(b.date || "9999") ||
-        a.time.localeCompare(b.time),
-    );
+  return filteredPlannerTasks(renderModel,{filter,courseFilter,query});
 }
 function prettyDate(s) {
   if (!s) return "Anytime";
@@ -232,25 +180,26 @@ function prettyDate(s) {
         });
 }
 function row(t) {
-  const course = state.courses.find((c) => c.id === t.course),
-    project = state.projects.find((p) => p.id === t.project);
-  return `<article class="task-row ${t.status === "Done" ? "completed" : ""}">${state.preferences.dev && !isWidget ? `<input type="checkbox" aria-label="Select ${esc(t.title)}" data-bulk="${t.id}" ${bulk.has(t.id) ? "checked" : ""}>` : ""}<button class="check ${t.status === "Done" ? "done" : ""}" data-complete="${t.id}" aria-label="${t.status === "Done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "Done" ? icon("check") : ""}</button><button class="task-open" data-task="${t.id}"><span class="task-title">${esc(isWidget && state.preferences.privacy ? "Upcoming task" : t.title)}</span><span class="task-meta">${!isWidget || !state.preferences.privacy ? `<span>${esc(course?.name || project?.name || "Personal")}</span>` : ""}${!["Task", "Personal"].includes(t.kind) ? `<span>${esc(t.kind)}</span>` : ""}${t.priority === "High" ? '<span class="badge urgent">High priority</span>' : ""}${t.status === "In progress" ? '<span class="badge">In progress</span>' : ""}${blocked(state, t) ? '<span class="badge">Blocked</span>' : ""}${t.subtasks.length ? `<span>${t.subtasks.filter((x) => x.done).length}/${t.subtasks.length} subtasks</span>` : ""}</span></button><span class="task-due ${t.date && t.date < dateKey() && t.status !== "Done" ? "overdue" : ""}">${isWidget && t.status === "Done" ? "Done" : esc(prettyDate(t.date))}${t.time ? `<br>${esc(t.time)}` : ""}</span>${isWidget && t.status !== "Done" ? `<button class="quiet" data-snooze="${t.id}" aria-label="Snooze ${esc(t.title)} for 15 minutes">${icon("clock")}</button>` : ""}</article>`;
+  const course = renderModel.courses.get(t.course),
+    project = renderModel.projects.get(t.project);
+  const widgetState = widgetTaskState(t);
+  const urgent = t.priority === 'High' || widgetState.overdue;
+  const displayTitle = isWidget && state.preferences.privacy ? 'Hidden task' : t.title;
+  return `<article class="task-row ${t.status === "Done" ? "completed" : ""} ${urgent ? "task-urgent" : ""} ${isWidget && urgent ? "widget-urgent" : ""}">${state.preferences.dev && !isWidget ? `<input type="checkbox" aria-label="Select ${esc(displayTitle)}" data-bulk="${t.id}" ${bulk.has(t.id) ? "checked" : ""}>` : ""}<button class="check ${t.status === "Done" ? "done" : ""}" data-complete="${t.id}" aria-label="${t.status === "Done" ? "Reopen" : "Complete"} ${esc(displayTitle)}">${t.status === "Done" ? icon("check") : ""}</button><button class="task-open" data-task="${t.id}"><span class="task-title">${esc(displayTitle)}</span><span class="task-meta">${!isWidget || !state.preferences.privacy ? `<span>${esc(course?.name || project?.name || "Personal")}</span>` : ""}${!["Task", "Personal"].includes(t.kind) ? `<span>${esc(t.kind)}</span>` : ""}${t.priority === "High" ? '<span class="badge urgent">High priority</span>' : ""}${widgetState.overdue ? '<span class="badge urgent">Overdue</span>' : ""}${t.status === "In progress" ? '<span class="badge">In progress</span>' : ""}${renderModel.blocked(t) ? '<span class="badge">Blocked</span>' : ""}${t.subtasks.length ? `<span>${t.subtasks.filter((x) => x.done).length}/${t.subtasks.length} subtasks</span>` : ""}</span></button><span class="task-due ${t.date && t.date < dateKey() && t.status !== "Done" ? "overdue" : ""}">${isWidget && t.status === "Done" ? "Done" : esc(prettyDate(t.date))}${t.time ? `<br>${esc(t.time)}` : ""}</span>${isWidget && t.status !== "Done" ? `<button class="quiet" data-snooze="${t.id}" aria-label="Snooze ${esc(displayTitle)} for 15 minutes">${icon("clock")}</button>` : ""}${isWidget ? `<button class="quiet widget-dismiss" data-widget-hide="${t.id}" aria-label="Hide ${esc(displayTitle)} from widget" title="Hide from widget">${icon("close")}</button>` : ""}</article>`;
 }
 function empty(title, text, action = "new-task", label = "Add a task") {
-  return `<div class="empty">${icon("inbox")}<h2>${title}</h2><p>${text}</p>${action ? `<button class="primary" data-action="${action}">${icon("plus")}${label}</button>` : ""}</div>`;
+  return `<div class="empty">${icon("inbox")}<h2>${title}</h2><p>${text}</p>${action ? `<button class="primary" data-action="${action}">${icon("plus")}<span>${label}</span></button>` : ""}</div>`;
 }
 function nav() {
-  const routes = [
-    ["today", "Today"],
-    ["tasks", "All tasks"],
-    ["calendar", "Calendar"],
-    ["courses", "Courses"],
-    ["projects", "Projects"],
-    ["habits", "Habits"],
-    ["review", "Weekly review"],
+  const navIcon = id => `<img class="nav-icon" src="../assets/navigation/${id === 'today' ? 'home' : id}.svg" alt="">`;
+  const groups = [
+    [['today', 'Home']],
+    [['calendar', 'Calendar'], ['tasks', 'Tasks'], ['courses', 'Courses'], ['projects', 'Projects']],
+    [['habits', 'Habits'], ['review', 'Weekly review'], ...(capabilities.overlays ? [['desktop', 'Desktop']] : [])],
   ];
-  if (state.preferences.dev) routes.push(["dev", "Dev Mode"]);
-  return `<aside class="sidebar"><div class="brand"><img src="../assets/munka.png" alt="Munka monkey logo">Munka</div><nav aria-label="Main navigation">${routes.map(([id, label]) => `<button class="navbtn ${view === id ? "active" : ""}" data-view="${id}" ${view === id ? 'aria-current="page"' : ""}>${icon(id)}${label}${id === "today" ? `<span class="count">${activeTasks().filter((t) => t.status !== "Done" && t.date && t.date <= dateKey()).length}</span>` : ""}</button>`).join("")}</nav><p class="nav-caption">Your courses</p>${state.courses
+  if (state.preferences.dev) groups[2].push(['dev', 'Dev Mode']);
+  const navigation = groups.map(group => `<div class="nav-group">${group.map(([id, label]) => `<button class="navbtn ${view === id ? 'active' : ''}" data-view="${id}" ${view === id ? 'aria-current="page"' : ''}>${navIcon(id)}${label}${id === 'today' ? `<span class="count">${activeTasks().filter(t => t.status !== 'Done' && t.date && t.date <= dateKey()).length}</span>` : ''}</button>`).join('')}</div>`).join('<hr class="nav-divider">');
+  return `<aside class="sidebar"><div class="brand"><img src="../assets/munka.png" alt="Munka monkey logo">Munka</div><nav aria-label="Main navigation">${navigation}</nav><p class="nav-caption">Your courses</p>${state.courses
     .filter((c) => !state.terms.some((t) => t.id === c.term && t.archived))
     .slice(0, 5)
     .map(
@@ -259,24 +208,25 @@ function nav() {
     )
     .join(
       "",
-    )}<button class="course-mini muted" data-action="new-course">${icon("plus")} Add course</button><div class="sidebar-bottom"><button class="navbtn ${view === "settings" ? "active" : ""}" data-view="settings">${icon("settings")}Settings</button><div class="local"><span class="dot"></span>${state.sync.account ? "Account connected" : "Saved on this computer"}</div></div></aside>`;
+    )}<button class="course-mini muted" data-action="new-course">${icon("plus")} Add course</button><div class="sidebar-bottom"><button class="navbtn ${view === "settings" ? "active" : ""}" data-view="settings" ${view === "settings" ? 'aria-current="page"' : ""}>${navIcon("settings")}Settings</button><div class="local"><span class="dot"></span>${accountStatus?.signedIn ? "Signed in · Saved on this device" : "Local mode · Saved on this device"}</div></div></aside>`;
 }
 function heading(title, text, action = "new-task", label = "Add task") {
   return `<div class="heading"><div><h1>${title}</h1><p>${text}</p></div>${action ? `<button class="primary" data-action="${action}">${icon("plus")}${label}</button>` : ""}</div>`;
 }
 function capture() {
-  return `<form class="capture" id="quick-add"><input name="title" aria-label="Quick task title" placeholder="What do you need to get done?" required maxlength="500"><button class="quiet" type="submit" aria-label="Add quick task">${icon("plus")}</button></form>`;
+  return `<form class="capture" id="quick-add"><input name="title" aria-label="Quick task title" placeholder="Add a task…" required maxlength="500"><button class="quiet" type="submit" aria-label="Add quick task">${icon("plus")}</button><button class="quiet" type="button" data-action="capture-plan">Plan with Munka</button></form>`;
 }
 function todayView() {
-  const ts = filtered(),
+  const ts = activeTasks().filter(t => t.status !== 'Done').sort(compareTasks),
     now = dateKey(),
-    due = ts.filter((t) => t.date && t.date <= now),
-    next = ts.filter((t) => t.date > now).slice(0, 5),
+    due = ts.filter((t) => (t.date && t.date <= now) || t.planDate === now),
+    next = ts.filter((t) => t.date > now && t.planDate !== now).slice(0, 5),
+    anytime = ts.filter((t) => !t.date && t.planDate !== now),
     done = state.tasks.filter((t) => t.completedAt?.startsWith(now)).length,
     events = state.events
       .filter((e) => dateKey(new Date(e.start)) === now)
       .sort((a, b) => a.start.localeCompare(b.start));
-  return `${heading("Today", new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}<div class="compact-schedule"><div><strong>${events.length ? "Next planned session" : "Today’s schedule"}</strong><p>${events.length ? esc((events.find((e) => new Date(e.end || e.start) > new Date()) || events[0]).title) : "No sessions planned yet."}</p></div><button class="quiet" data-action="today-schedule">View schedule ${icon("arrow")}</button></div><div class="workspace"><div><div class="day-summary"><div><h2>${due.length ? "Make room for what matters." : "A little space to plan."}</h2><p>${due.length ? `${due.length} task${due.length === 1 ? "" : "s"} to focus on. ${done ? `${done} completed today.` : "One thing at a time."}` : "Capture your next task and give it a place in your day."}</p></div><div class="summary-mark">${icon("today")}</div></div><div class="section-head"><h2>Your focus</h2><span>${due.length} tasks</span></div>${due.length ? due.map(row).join("") : empty("Your day is clear", "Add an assignment, a personal task, or something you want to remember.", null)}${capture()}${next.length ? `<div class="section-head"><h2>Coming up</h2><button class="quiet small" data-view="tasks">View all ${icon("arrow")}</button></div>${next.map(row).join("")}` : ""}${!state.tasks.length ? '<button class="quiet small" data-action="sample">Explore with sample tasks</button>' : ""}</div><aside class="agenda"><h2>Your schedule</h2><p class="agenda-date">Planned time, separate from deadlines</p>${events.length ? events.map((e) => `<div class="event"><time>${new Date(e.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time><div class="event-content"><strong>${esc(e.title)}</strong><small>${esc(e.kind)}${state.events.some((x) => x.id !== e.id && overlaps(x, e)) ? " · Overlaps another event" : ""}</small><button class="quiet small" data-event="${e.id}">Edit</button></div></div>`).join("") : '<p class="muted small">No time blocks yet. A small study session is a good place to start.</p>'}<button class="quiet small" data-action="new-event">${icon("plus")}Plan a session</button><div class="notice">${icon("desktop")}<h3 class="spaced">Keep your day in sight</h3><p>Bring your next tasks onto your desktop, even when your planner is tucked away.</p><button data-view="settings">Desktop reminders ${icon("arrow")}</button></div></aside></div>`;
+  return `${heading("Home", new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }))}${workloadSummary(state,esc)}<div class="compact-schedule"><div><strong>${events.length ? "Next planned session" : "Today’s schedule"}</strong><p>${events.length ? esc((events.find((e) => new Date(e.end || e.start) > new Date()) || events[0]).title) : "No sessions planned yet."}</p></div><button class="quiet" data-action="today-schedule">View schedule ${icon("arrow")}</button></div><div class="workspace"><div><div class="day-summary"><div><h2>${due.length ? "Make room for what matters." : "A little space to plan."}</h2><p>${due.length ? `${due.length} task${due.length === 1 ? "" : "s"} to focus on. ${done ? `${done} completed today.` : "One thing at a time."}` : "Capture your next task and give it a place in your day."}</p></div><div class="summary-mark">${icon("today")}</div></div><div class="section-head"><h2>Your focus</h2><span>${due.length} task${due.length === 1 ? '' : 's'}</span></div>${due.length ? due.map(row).join("") : empty("Your day is clear", "Add an assignment, a personal task, or something you want to remember.", null)}${capture()}${anytime.length ? `<section aria-label="Tasks without a date"><div class="section-head"><h2>Anytime</h2><span>No deadline set</span></div><p class="muted small">Captured and ready when you are. Open a task to give it a date.</p>${anytime.map(row).join("")}</section>` : ""}${next.length ? `<div class="section-head"><h2>Coming up</h2><button class="quiet small" data-view="tasks">View all ${icon("arrow")}</button></div>${next.map(row).join("")}` : ""}${!state.tasks.length ? '<button class="quiet small" data-action="sample">Explore with sample tasks</button>' : ""}</div><aside class="agenda"><h2>Your schedule</h2><p class="agenda-date">Planned time, separate from deadlines</p>${events.length ? events.map((e) => `<div class="event"><time>${new Date(e.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time><div class="event-content"><strong>${esc(e.title)}</strong><small>${esc(e.kind)}${state.events.some((x) => x.id !== e.id && overlaps(x, e)) ? " · Overlaps another event" : ""}</small><button class="quiet small" data-event="${e.id}">Edit</button></div></div>`).join("") : '<p class="muted small">No time blocks yet. A small study session is a good place to start.</p>'}<button class="quiet small" data-action="new-event">${icon("plus")}Plan a session</button>${capabilities.overlays ? `<div class="notice">${icon("desktop")}<h3 class="spaced">Keep your day in sight</h3><p>Bring your next tasks onto your desktop, even when your planner is tucked away.</p><button data-view="desktop">Desktop overlays ${icon("arrow")}</button></div>` : ''}</aside></div>`;
 }
 function taskView() {
   const list = filtered();
@@ -288,70 +238,24 @@ function taskView() {
               (c) => c.id === courseFilter,
             )?.name || "Tasks",
           )
-        : "All tasks",
-      "A place for everything you need to do.",
+        : "Tasks",
+      "Due dates first. High-priority tasks lead within each date.",
     ) +
-    `<div class="toolbar"><select id="status-filter" aria-label="Filter tasks">${["open", "all", "done", ...(state.preferences.dev ? ["high", "blocked"] : [])].map((x) => `<option value="${x}" ${filter === x ? "selected" : ""}>${{ open: "Open tasks", all: "All statuses", done: "Completed", high: "High priority", blocked: "Blocked" }[x]}</option>`).join("")}</select><select id="course-filter" aria-label="Filter by course or project"><option value="">All courses & projects</option>${[...state.courses, ...state.projects].map((c) => `<option value="${c.id}" ${courseFilter === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select>${state.preferences.dev ? '<button data-action="save-view">Save view</button>' : ""}${bulk.size ? `<button data-action="bulk-complete">Complete ${bulk.size} selected</button>` : ""}</div>${capture()}${list.length ? list.map(row).join("") : empty("Nothing here yet", "Try another filter or capture a new task.", null)}`
+    `<div class="toolbar"><select id="status-filter" aria-label="Filter tasks">${["open", "overdue", "undated", "high", "all", "done", ...(state.preferences.dev ? ["blocked"] : [])].map((x) => `<option value="${x}" ${filter === x ? "selected" : ""}>${{ open: "Open tasks", overdue: "Overdue", undated: "No date", all: "All statuses", done: "Completed", high: "High priority", blocked: "Blocked" }[x]}</option>`).join("")}</select><select id="course-filter" aria-label="Filter by course or project"><option value="">All courses & projects</option>${[...state.courses, ...state.projects].map((c) => `<option value="${c.id}" ${courseFilter === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select>${(query || courseFilter || filter !== "open") ? '<button class="quiet" data-action="clear-filters">Clear filters</button>' : ""}${state.preferences.dev ? '<button data-action="save-view">Save view</button>' : ""}${bulk.size ? `<button data-action="bulk-complete">Complete ${bulk.size} selected</button>` : ""}<button data-action="batch-tasks">${icon("plus")}Paste tasks</button></div>${capture()}${list.length ? list.map(row).join("") : empty(activeTasks().length ? "No matching tasks" : "Your tasks start here", activeTasks().length ? "Clear your filters to see more of your planner." : "Capture an assignment, errand, or something you want to remember.", activeTasks().length ? "clear-filters" : null, "Clear filters")}`
   );
 }
 function calendarView() {
-  const d = new Date(calendarDate + "T12:00:00");
-  let start = calendarDate,
-    count = 1;
-  if (calendarMode === "week") {
-    start = addDays(calendarDate, -((d.getDay() + 6) % 7));
-    count = 7;
-  }
-  if (calendarMode === "month") {
-    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-    start = addDays(dateKey(first), -((first.getDay() + 6) % 7));
-    count = 42;
-  }
-  const days = Array.from({ length: count }, (_, i) => addDays(start, i));
-  return (
-    heading(
-      "Calendar",
-      d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-      "new-event",
-      "Plan time",
-    ) +
-    `<div class="toolbar"><button data-action="calendar-prev" aria-label="Previous period">Previous</button><button data-action="calendar-now">Today</button><button data-action="calendar-next" aria-label="Next period">Next</button>${["day", "week", "month"].map((m) => `<button data-calendar-mode="${m}" class="${calendarMode === m ? "active" : ""}">${m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div>${
-      calendarMode === "day"
-        ? days
-            .map(
-              (day) =>
-                `<h2>${prettyDate(day)}</h2>${state.events
-                  .filter((e) => dateKey(new Date(e.start)) === day)
-                  .map(
-                    (e) =>
-                      `<article class="task-row"><button class="task-open" data-event="${e.id}"><span class="task-title">${esc(e.title)}</span><span class="task-meta">${esc(e.kind)} · ${new Date(e.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${state.events.some((x) => x.id !== e.id && overlaps(x, e)) ? " · Schedule overlap" : ""}</span></button></article>`,
-                  )
-                  .join("")}${state.tasks
-                  .filter((t) => t.date === day)
-                  .map(row)
-                  .join("")}`,
-            )
-            .join("")
-        : `<div class="calendar-grid">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((x) => `<div class="weeklabel">${x}</div>`).join("")}${days
-            .map(
-              (day) =>
-                `<div class="calendar-cell ${day === dateKey() ? "today" : ""}"><button class="day-number" data-calendar-day="${day}" aria-label="Open ${day}">${new Date(day + "T12:00:00").getDate()}</button>${state.events
-                  .filter((e) => dateKey(new Date(e.start)) === day)
-                  .map(
-                    (e) =>
-                      `<button class="calendar-entry" data-event="${e.id}">${esc(e.title)}</button>`,
-                  )
-                  .join("")}${state.tasks
-                  .filter((t) => t.date === day && t.status !== "Done")
-                  .map(
-                    (t) =>
-                      `<button class="calendar-entry" data-task="${t.id}">Due: ${esc(t.title)}</button>`,
-                  )
-                  .join("")}</div>`,
-            )
-            .join("")}</div>`
-    }`
-  );
+  const status=cloud.getStatus();
+  if(calendarScope(calendarSource,status.calendars).missing) {calendarDrafts.delete(calendarSource);calendarSource='all';calendarFocus='all';}
+  return renderCalendar({ state, date: calendarDate, mode: calendarMode, showDone: calendarShowDone, source: calendarSource, focus: calendarFocus, sharedCalendars:status.calendars, invitations:status.invitations.length, esc, icon });
+}
+function extensionTools() {return {bridge,getState:()=>state,save,drawer,field,select,esc,closeDrawer,toast,refresh:async()=>{state=await bridge.load();render();}};}
+function planPrompt(text='') {if(accessMode !== 'account') return munkaAccountPanel('Sign in to use Munka Assistant. Your draft will be kept.', { assistantPrompt: text }); return aiActions(extensionTools()).open(text).catch(error=>toast(error.message));}
+function batchTasks() {
+  openBatchTasks({ getState: () => state, save, drawer, field, select, esc, closeDrawer, toast });
+}
+function calendarTools() {
+  return calendarActions({ getState: () => state, save, drawer, field, select, esc, toast, closeDrawer, pickFile: () => bridge.importFile() });
 }
 function collectionView(kind) {
   const courses = kind === "courses",
@@ -366,19 +270,17 @@ function collectionView(kind) {
       courses
         ? "Keep each class and its deadlines together."
         : "School projects and everything beyond the classroom.",
-      courses ? "new-course" : "new-project",
+      state[kind].length ? (courses ? "new-course" : "new-project") : null,
       courses ? "Add course" : "Add project",
     ) +
     (courses
-      ? `<div class="toolbar"><button data-action="new-term">Add term</button>${state.terms.map((t) => `<button data-term="${t.id}" title="Archive or restore term">${esc(t.name)}${t.archived ? " · Archived" : ""}</button>`).join("")}</div>`
+      ? `<div class="toolbar">${capabilities.syllabus ? '<button data-action="syllabus">Import syllabus</button>' : ''}<button data-action="new-term">Add term</button>${state.terms.map((t) => `<button data-term="${t.id}" title="Archive or restore term">${esc(t.name)}${t.archived ? " · Archived" : ""}</button>`).join("")}</div>`
       : "") +
     `<div class="collection">${items
       .map((c) => {
-        const ts = state.tasks.filter(
-            (t) => t[courses ? "course" : "project"] === c.id,
-          ),
+        const ts = (courses ? renderModel.byCourse : renderModel.byProject).get(c.id) || [],
           done = ts.filter((t) => t.status === "Done").length;
-        return `<article class="collection-item"><h2>${esc(c.name)}</h2><p>${esc(courses ? state.terms.find((t) => t.id === c.term)?.name || "No term assigned" : c.shared ? "Shared project" : "Personal project")}</p><p>${esc(c.notes || "Make a little progress, one task at a time.")}</p><div class="review-row"><span>${ts.length} tasks</span><span>${done} completed</span></div><div class="actions"><button data-course="${c.id}">View tasks</button><button class="quiet" data-edit-collection="${kind}:${c.id}">Edit</button>${!courses ? `<button class="quiet" data-share="${c.id}">Share</button>` : ""}</div></article>`;
+        return `<article class="collection-item"><h2>${esc(c.name)}</h2><p>${esc(courses ? state.terms.find((t) => t.id === c.term)?.name || "No term assigned" : c.shared ? "Shared project" : "Personal project")}</p><p>${esc(c.notes || "Make a little progress, one task at a time.")}</p><div class="review-row"><span>${ts.length} task${ts.length === 1 ? '' : 's'}</span><span>${done} completed</span></div><div class="actions"><button data-course="${c.id}">View tasks</button><button class="quiet" data-edit-collection="${kind}:${c.id}">Edit</button></div></article>`;
       })
       .join("")}</div>` +
     (!items.length
@@ -399,7 +301,7 @@ function habitsView() {
     heading(
       "Habits",
       "Small routines, with room for real life.",
-      "new-habit",
+      state.habits.length ? "new-habit" : null,
       "Add habit",
     ) +
     (state.habits.length
@@ -442,10 +344,34 @@ function toggle(key, label, desc) {
 }
 function settingsView() {
   const p = state.preferences;
-  return (
-    heading("Settings", "Make Munka feel at home on your desktop.", null) +
-    `<div class="settings"><p class="muted small">Munka ${esc(appVersion.version)} · ${esc(appVersion.build)}</p><h2>Appearance</h2><div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${["system", "light", "dark"].map((x) => `<option ${p.theme === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>${toggle("dev", "Dev Mode", "Show advanced views, dependencies, bulk actions, and automation tools.")}<h2 class="section-block">Desktop reminders</h2>${toggle("widget", "Desktop widget", "A small, interactive task list alongside your work.")}${widgetAppearance()}${toggle("alwaysOnTop", "Keep widget on top", "Keep your widget above other windows.")}${toggle("wallpaper", "Wallpaper reminders", "Place a task summary on your chosen desktop background.")}<button data-action="wallpaper-preview">Preview wallpaper</button><div class="setting"><div><h3>Wallpaper placement</h3><p>The widget and wallpaper can run independently.</p></div><select id="wallpaper-position" aria-label="Wallpaper placement"><option value="right" ${p.wallpaperPosition === "right" ? "selected" : ""}>Right</option><option value="left" ${p.wallpaperPosition === "left" ? "selected" : ""}>Left</option></select></div><div class="setting"><h3>Wallpaper display</h3><select id="wallpaper-display" aria-label="Wallpaper display">${displays.length ? displays.map((d) => `<option value="${d.id}" ${p.wallpaperDisplay === d.id ? "selected" : ""}>${esc(d.name)}</option>`).join("") : "<option>Primary display</option>"}</select></div><div class="setting"><h3>Visible reminders</h3><select id="wallpaper-count" aria-label="Visible reminders">${[3, 5, 8].map((n) => `<option ${Number(p.wallpaperCount) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>${p.wallpaperError ? `<p class="inline-error">${esc(p.wallpaperError)}</p>` : ""}${toggle("privacy", "Hide task details on desktop", "Display “Upcoming task” instead of private task names.")}${toggle("background", "Keep running in the tray", "Closing the window keeps reminders active. Quit from the tray to stop them.")}<h2 class="section-block">Notifications</h2><p class="muted small">Windows notification settings and Focus settings may silence alerts. Munka cannot override them. Use the test below to check delivery.</p><button data-action="test-notification">Send test notification</button>${toggle("sound", "Reminder sounds", "Play a sound when Windows delivers a reminder.")}${toggle("quietEnabled", "Quiet hours", "Hold reminders and deliver a catch-up after quiet hours.")}<div class="form-grid spaced"><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div><h2 class="section-block">Automation</h2>${toggle("automationPaused", "Pause all automations", "Rules remain saved, including when Dev Mode is off.")}<h2 class="section-block">Your data</h2><p class="muted small">Your planner is stored on this computer. The Windows app keeps 14 rotating local backups. Import always shows a preview before changing your planner.</p><div class="actions"><button data-action="import">Import or restore</button><button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div><h2 class="section-block">Account & synchronization</h2><p class="muted small">Optional. Connect to a Munka sync service to use multiple PCs and shared projects. Local planning does not require an account.</p><p id="sync-status" role="status">${esc(state.sync.message || "Local only · No sync service connected")}</p><div class="actions"><button data-action="account">${state.sync.account ? "Manage account" : "Connect account"}</button>${state.sync.account ? '<button data-action="sync">Sync now</button><button data-action="accept-invite">Accept invitation</button>' : ""}</div></div>`
-  );
+  return heading('Settings', 'Make Munka fit the way you work.', null) + `
+    <div class="settings">
+      <h2 >Munka account</h2>
+      <p class="muted small">Sign in to sync your personal planner across devices and share selected calendars. Local plans stay private until you choose to copy and sync them.</p>
+      <p role="status">${accountStatus?.signedIn ? `Signed in as ${esc(accountStatus.email)}` : 'Using Munka locally'}</p>
+      <div class="actions"><button data-action="munka-account">${accountStatus?.signedIn ? 'Account details' : 'Sign in or create account'}</button>${accountStatus?.signedIn ? '<button data-action="munka-switch-account">Switch account</button><button data-action="munka-signout">Sign out</button>' : ''}<button data-action="product-guide">Take a quick tour</button></div>
+      <h2 class="section-block">Sync & shared calendars</h2><p id="cloud-sync-status" role="status">${esc(cloud.getStatus().message)}</p><div class="actions"><button data-action="account-sync">Sync across devices</button><button data-action="shared-calendars">Shared calendars & invitations</button></div>
+      <h2 class="section-block">Your setup</h2>
+      <div class="setting"><div><h3>Make Munka yours</h3><p>Adjust your planning focus and desktop preferences.</p></div><button data-action="personalize">Personalize Munka</button></div>
+      ${capabilities.connections ? '<div class="setting"><div><h3>Google & Outlook</h3><p>Bring selected calendars into your planner.</p></div><button data-action="connections">Connected calendars</button></div>' : ''}
+      <h2 class="section-block">Appearance</h2>
+      <div class="setting"><div><h3>Theme</h3><p>Comfortable in daylight and late-night study sessions.</p></div><select id="theme" aria-label="Theme">${['system','light','dark'].map(x => `<option ${p.theme === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+      ${toggle('dev', 'Dev Mode', 'Show advanced views, dependencies, bulk actions, and automation tools.')}
+      ${capabilities.overlays ? `<div class="setting"><div><h3>Desktop overlays${capabilities.wallpaper ? ' & wallpaper' : ''}</h3><p>Choose what stays visible alongside your work.</p></div><button data-view="desktop">Open Desktop ${icon('arrow')}</button></div>` : ''}
+      ${capabilities.notifications ? `<h2 class="section-block">Notifications</h2>
+      <p class="muted small">${capabilities.platform === 'darwin' ? 'macOS notification and Focus settings' : 'Windows notification and Focus settings'} may silence alerts. Use the test below to check delivery.</p>
+      <button data-action="test-notification">Send test notification</button>
+      ${toggle('sound', 'Reminder sounds', 'Play a sound when your computer delivers a reminder.')}
+      ${toggle('quietEnabled', 'Quiet hours', 'Hold reminders and deliver a catch-up after quiet hours.')}
+      <div class="form-grid spaced" ${p.quietEnabled?'':'hidden'}><label class="field"><span>Start</span><input type="time" id="quiet-start" value="${p.quietStart}"></label><label class="field"><span>End</span><input type="time" id="quiet-end" value="${p.quietEnd}"></label></div>
+      ` : `<section class="beta-device-note"><h2>Mobile beta</h2><p id="mobile-connectivity">${navigator.onLine ? 'Plans stay on this device' : 'Offline · Plans stay on this device'}</p><p class="muted small">Reminders appear in your planner. Alerts while the app is closed, AI, connected calendars and syllabus extraction are not available in this beta.</p><div class="actions"><button id="mobile-install" type="button">Install on your phone</button><button id="mobile-update" type="button" hidden>Update app</button></div></section>`}<h2 class="section-block">Automation</h2>
+      ${toggle('automationPaused', 'Pause all automations', 'Rules remain saved, including when Dev Mode is off.')}
+      <h2 class="section-block">Import & backups</h2>
+      <p class="muted small">Import tasks from CSV, calendar events from ICS, or restore a Munka JSON backup. Every import opens a review before anything changes.</p>
+      <div class="actions"><button data-action="import">Import a file</button>${capabilities.syllabus ? '<button data-action="syllabus">Import syllabus</button>' : ''}<button data-action="backup">Export full backup</button><button data-action="csv">Export tasks as CSV</button></div>
+      <p class="muted small spaced">${capabilities.desktop ? 'The desktop app keeps 14 rotating local backups.' : 'Export backups regularly. Clearing browser data removes plans saved here. Local and signed-in planners have separate device storage.'} Your planner works offline without an account.</p>
+      <details class="settings-about section-block"><summary>About Munka</summary><p class="muted small">Version ${esc(appVersion.version)} · ${esc(appVersion.build)}</p><p class="muted small">Plan with Munka uses the connected AI service. No API key needed. Syllabus review works locally. Google / Outlook connections require provider setup. ChatGPT account linking is not available.</p></details>
+    </div>`;
 }
 function devView() {
   return (
@@ -455,7 +381,7 @@ function devView() {
       "new-rule",
       "Create rule",
     ) +
-    `<div class="toolbar"><button data-action="commands">Command palette <span class="key">Ctrl K</span></button><button data-action="backup">Export JSON</button><button data-action="import">Import JSON</button></div><h2 class="section-block">Saved views</h2><div class="actions">${state.views.map((v) => `<button data-saved-view="${v.id}">${esc(v.name)}</button>`).join("") || '<p class="muted">Save your filters from All tasks.</p>'}</div><h2 class="section-block">Automation rules</h2>${state.preferences.automationPaused ? '<p class="inline-error">All automations are paused in Settings.</p>' : ""}${state.rules.map((r) => `<article class="setting"><div><h3>${esc(r.name)}</h3><p>When ${esc(r.trigger)} → ${esc(r.action)}: ${esc(r.value)}</p></div><button data-rule="${r.id}" aria-pressed="${r.enabled}">${r.enabled ? "Disable" : "Enable"}</button></article>`).join("") || '<p class="muted">Create a rule to take care of a small repeatable step.</p>'}<h2 class="section-block">Execution history</h2><div class="table-scroll"><table><thead><tr><th>Time</th><th>What happened</th></tr></thead><tbody>${state.logs
+    `<div class="toolbar"><button data-action="commands">Command palette <span class="key">${capabilities.shortcut}</span></button><button data-action="backup">Export JSON</button><button data-action="import">Import JSON</button></div><h2 class="section-block">Saved views</h2><div class="actions">${state.views.map((v) => `<button data-saved-view="${v.id}">${esc(v.name)}</button>`).join("") || '<p class="muted">Save your filters from All tasks.</p>'}</div><h2 class="section-block">Automation rules</h2>${state.preferences.automationPaused ? '<p class="inline-error">All automations are paused in Settings.</p>' : ""}${state.rules.map((r) => `<article class="setting"><div><h3>${esc(r.name)}</h3><p>When ${esc(r.trigger)} → ${esc(r.action)}: ${esc(r.value)}</p></div><button data-rule="${r.id}" aria-pressed="${r.enabled}">${r.enabled ? "Disable" : "Enable"}</button></article>`).join("") || '<p class="muted">Create a rule to take care of a small repeatable step.</p>'}<h2 class="section-block">Execution history</h2><div class="table-scroll"><table><thead><tr><th>Time</th><th>What happened</th></tr></thead><tbody>${state.logs
       .slice(-50)
       .reverse()
       .map(
@@ -466,16 +392,36 @@ function devView() {
   );
 }
 function widgetAppearance() {
-  const design = state.preferences.widgetDesign || 'glass';
+  const hiddenCount = widgetModel(state).hiddenCount;
+  const design = state.preferences.widgetSurface === 'panel' ? (state.preferences.widgetDesign || 'glass') : 'seamless';
   const size = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
-  return `<details class="widget-customize" ${widgetAppearanceOpen ? 'open' : ''}><summary>Appearance</summary><div class="widget-customize-body"><label for="widget-design">Widget design</label><select id="widget-design">${[['glass','Glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select><label for="widget-size">Window size preset</label><select id="widget-size"><option value="compact" ${size === 'compact' ? 'selected' : ''}>Compact</option><option value="roomy" ${size === 'roomy' ? 'selected' : ''}>Roomy</option></select><p class="small muted">Or drag a window edge to choose your own size.</p>${toggle('widgetProjects', 'Show projects', 'Keep project work in its own kiosk.')}</div></details>`;
+  return `<details class="widget-customize" ${widgetAppearanceOpen || !isWidget ? 'open' : ''}><summary>Appearance & position</summary><div class="widget-customize-body"><label for="widget-design">Background</label><select id="widget-design">${[['seamless','None · seamless'],['glass','Soft glass'],['sage','Sage'],['plain','Plain']].map(([v,n]) => `<option value="${v}" ${v === design ? 'selected' : ''}>${n}</option>`).join('')}</select>${design === 'seamless' ? `<label for="widget-ink">Lettering</label><select id="widget-ink"><option value="dark" ${state.preferences.widgetInk !== 'light' ? 'selected' : ''}>Dark · for light wallpaper</option><option value="light" ${state.preferences.widgetInk === 'light' ? 'selected' : ''}>Light · for dark wallpaper</option></select><p class="small muted">Only your tasks sit over your wallpaper. Choose Soft glass if the background makes text hard to read.</p>` : ''}<label for="widget-size">${isProjectsWidget ? 'Projects size' : 'Daily tasks size'}</label><select id="widget-size"><option value="compact" ${size === 'compact' ? 'selected' : ''}>Compact</option><option value="roomy" ${size === 'roomy' ? 'selected' : ''}>Roomy</option></select>
+    ${!isWidget ? `<label for="projects-widget-size">Projects size</label><select id="projects-widget-size"><option value="compact" ${state.preferences.projectsWidgetSize !== 'roomy' ? 'selected' : ''}>Compact</option><option value="roomy" ${state.preferences.projectsWidgetSize === 'roomy' ? 'selected' : ''}>Roomy</option></select>` : ''}
+    ${isWidget ? toggle('privacy', 'Hide task details', `Hide names on both widgets${capabilities.wallpaper ? ' and wallpaper' : ''}. Turn off to show them again.`) : ''}
+    ${hiddenCount ? `<button class="quiet" data-widget-restore>Show hidden tasks (${hiddenCount})</button>` : ''}
+    <p class="small muted">Drag an edge to adjust the size, or use these presets.</p>${isWidget && window.munka ? '<div class="widget-placement-controls"><button class="quiet" data-action="widget-position">Choose display</button><button data-overlay-adjust="move" aria-describedby="widget-keyboard-help">Move with arrows</button><button data-overlay-adjust="resize" aria-describedby="widget-keyboard-help">Resize with arrows</button></div><p id="widget-keyboard-help" class="small muted">Focus a move or resize button, then use arrow keys. Hold Shift for smaller steps.</p>' : ''}${isWidget ? toggle('widgetProjects', 'Show projects', 'Keep project work in its own overlay.') : ''}</div></details>`;
 }
 function projectKiosk(projects) {
-  return `<section class="project-kiosk" aria-label="Current projects"><div class="widget-section-title"><span class="widget-eyebrow">PROJECT WORK</span><span class="widget-count">${projects.length} active</span></div><h1>In progress</h1><p class="muted small">A little space for the bigger things.</p>${projects.map(p => `<section class="widget-project"><div class="project-heading"><h2>${esc(state.preferences.privacy ? 'Current project' : p.name)}</h2><span class="small muted">${p.done}/${p.tasks.length} done</span></div><progress aria-label="Project completion" max="${p.tasks.length || 1}" value="${p.done}"></progress>${p.tasks.map(row).join('') || '<p class="small muted">No tasks yet. Add one in Projects.</p>'}</section>`).join('') || '<p class="widget-empty">No active projects yet. Create one in your planner.</p>'}</section>`;
+  return `<section class="project-kiosk" aria-label="Current projects"><div class="widget-section-title"><h1>Projects</h1><span class="widget-count">${projects.length} active</span></div><p class="muted small">A little space for the bigger things.</p>${projects.map(p => `<section class="widget-project"><div class="project-heading"><h2>${esc(state.preferences.privacy ? 'Current project' : p.name)}</h2><span class="small muted">${p.done}/${p.tasks.length} done</span></div><progress aria-label="Project completion" max="${p.tasks.length || 1}" value="${p.done}"></progress>${p.visibleTasks.map(row).join('') || '<p class="small muted">No tasks to show here. Open Projects to see the full history.</p>'}</section>`).join('') || '<p class="widget-empty">No active projects yet. Create one in your planner.</p>'}</section>`;
+}
+if (isWidget) {
+  let renderedDay = dateKey();
+  const refreshWidgetDate = () => {
+    const today = dateKey();
+    if (state && today !== renderedDay) { renderedDay = today; render(); }
+  };
+  setInterval(refreshWidgetDate, 60000);
+  document.addEventListener('visibilitychange', refreshWidgetDate);
 }
 function render() {
-  if (!state) return;
+  if (accessMode === 'locked' || !state) return;
+  renderModel = plannerRenderModel(state);
   const focusBefore = focusIdentity();
+  const captureBefore = $('#quick-add input');
+  const captureDraft = captureBefore ? {value:captureBefore.value,context:captureBefore.form.dataset.context} : null;
+  const quickBefore = $('#calendar-quick-add');
+  const quickDraft = quickBefore ? { values: Object.fromEntries(new FormData(quickBefore)), day: quickBefore.dataset.selectedDay, target:quickBefore.dataset.creationTarget } : null;
+  if(quickDraft)calendarDrafts.set(quickDraft.target,quickDraft);
   const dark =
     state.preferences.theme === "dark" ||
     (state.preferences.theme === "system" &&
@@ -483,15 +429,16 @@ function render() {
   document.body.classList.toggle("dark", dark);
   if (isWidget) {
     const model = widgetModel(state);
-    const design = ['glass', 'sage', 'plain'].includes(state.preferences.widgetDesign) ? state.preferences.widgetDesign : 'glass';
+    const design = state.preferences.widgetSurface === 'panel' ? (['glass', 'sage', 'plain'].includes(state.preferences.widgetDesign) ? state.preferences.widgetDesign : 'glass') : 'seamless';
     document.body.classList.add('widget-page');
     document.documentElement.classList.add('widget-root');
     document.body.classList.toggle('widget-browser', !window.munka);
     document.body.dataset.widgetDesign = design;
+    document.body.dataset.widgetInk = state.preferences.widgetInk === 'light' ? 'light' : 'dark';
     document.body.dataset.widgetSize = state.preferences[isProjectsWidget ? 'projectsWidgetSize' : 'widgetSize'] || 'compact';
     const showProjects = state.preferences.widgetProjects !== false;
     $("#app").innerHTML =
-      `<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="widget-position" aria-label="Choose widget display and position">Position</button><button class="quiet" data-action="open-main" aria-label="Open full planner">${icon("arrow")}</button></div></header><p class="muted small widget-position-help">Drag the header to move · Resize from an edge</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><span class="widget-eyebrow">DAILY TASKS & REMINDERS</span><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><h1>Your day, in sight.</h1><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || '<p class="widget-empty">A clear day. Add a task in your planner.</p>'}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
+      `${window.munka ? resizeHandles() : '<p class="widget-preview-note">Visual preview · Desktop movement works in the Mac and Windows apps</p>'}<main id="main" class="widget-layout"><header><div class="brand"><img src="../assets/munka.png" alt="">Munka</div><div class="widget-header-actions"><button class="quiet" data-action="open-main" aria-label="Open full planner" title="Open planner">${icon("arrow")}</button>${window.munka ? `<button class="quiet" data-action="widget-off" aria-label="Hide this overlay" title="Hide overlay · restore from Desktop or ${capabilities.platform === 'darwin' ? 'menu bar' : 'tray'}">${icon('close')}</button>` : ''}</div></header><p class="muted small widget-position-help">${window.munka ? 'Drag here to move · Resize from an edge' : 'Your tasks, directly over your wallpaper'}</p>${isProjectsWidget ? (showProjects ? projectKiosk(model.projects) : '<p class="widget-empty">Projects are hidden. Turn on Show projects below.</p>') : `<section aria-label="Daily tasks"><div class="widget-section-title"><h1>Tasks and reminders</h1><span class="widget-count">${model.daily.filter(t => t.status === 'Done').length}/${model.daily.length} done</span></div><p class="muted small">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>${model.daily.map(row).join('') || (model.dailyHiddenCount ? '<p class="widget-empty">Your tasks are hidden from this widget.</p><button class="quiet" data-widget-restore>Show hidden tasks</button>' : '<p class="widget-empty">No tasks to show here. Open your planner to add work or see completed tasks.</p>')}</section>`}${widgetAppearance()}</main>${!window.munka && !isProjectsWidget && showProjects ? `<aside class="widget-layout widget-project-companion">${projectKiosk(model.projects)}</aside>` : ''}`;
     bind();
     restoreFocus(focusBefore);
     return;
@@ -505,11 +452,26 @@ function render() {
     habits: habitsView,
     review: reviewView,
     settings: settingsView,
+    desktop: () => capabilities.overlays ? desktopView({state, displays, capabilities, heading, toggle, appearance: widgetAppearance, esc}) : heading('Desktop features', 'Overlays are available in the Mac and Windows desktop apps.', null),
+    more: () => moreView({heading, capabilities, dev: state.preferences.dev}),
     dev: devView,
   };
   $("#app").innerHTML =
-    `<div class="shell">${nav()}<div class="mainwrap"><header class="topbar"><div class="search">${icon("search")}<input id="global-search" aria-label="Search planner" placeholder="Search your planner" value="${esc(query)}"></div><div class="right"><span class="sync-label muted small">${state.sync.account ? "Connected" : "Personal workspace"}</span><button class="quiet" data-action="commands" aria-label="Open command palette"><span class="key">Ctrl K</span></button></div></header><main class="main" id="main" tabindex="-1">${(pages[view] || todayView)()}</main></div></div>`;
+    `<div class="shell">${nav()}<div class="mainwrap"><header class="topbar"><div class="mobile-brand"><img src="../assets/munka.png" alt="">Munka</div><div class="search">${icon("search")}<input id="global-search" aria-label="Search planner" placeholder="Search your planner" value="${esc(query)}"></div><div class="right"><span class="sync-label muted small">${accessMode === "account" ? "Saved on this device" : "Local mode"}</span><button class="quiet" data-action="commands" aria-label="Open command palette"><span class="key">${capabilities.shortcut}</span></button>${accountMenu(accountStatus)}</div></header><main class="main" id="main" tabindex="-1">${(pages[view] || todayView)()}</main></div>${mobileNavigation(view)}</div>`;
   bind();
+  bindMobile({drawer, toast});
+  const captureAfter = $('#quick-add input');
+  if(captureAfter && captureDraft && captureDraft.context===view+':'+courseFilter) captureAfter.value=captureDraft.value;
+  if(captureAfter) captureAfter.form.dataset.context=view+':'+courseFilter;
+  const quickAfter = $('#calendar-quick-add');
+  if (quickAfter) {
+    quickAfter.dataset.selectedDay = calendarDate;
+    const matchingDraft=calendarDrafts.get(quickAfter.dataset.creationTarget);
+    if (matchingDraft) {
+      quickAfter.elements.title.value = matchingDraft.values.title;
+      if (matchingDraft.day === calendarDate) quickAfter.elements.date.value = matchingDraft.values.date;
+    }
+  }
   if ($(".drawer")) $("#app").inert = true;
   else restoreFocus(focusBefore);
 }
@@ -526,14 +488,15 @@ function select(label, name, value, options) {
 }
 function closeDrawer() {
   const el = $(".drawer");
-  if (el) el.remove();
+  if (el) { el.dispatchEvent(new Event('munka-drawer-close')); el.remove(); }
   $("#app").inert = false;
   drawerKind = null;
   selected = null;
+  if(calendarRefreshPending&&state&&accessMode!=='locked'){calendarRefreshPending=false;render();}
   restoreFocus(drawerOpener);
   drawerOpener = null;
 }
-function drawer(title, html, onSubmit) {
+function drawer(title, html, onSubmit = () => {}) {
   const opener = drawerOpener || focusIdentity();
   closeDrawer();
   drawerOpener = opener;
@@ -548,9 +511,9 @@ function drawer(title, html, onSubmit) {
   el.addEventListener("keydown", (e) => {
     if (e.key !== "Tab") return;
     const controls = $$(
-      'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
+      'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]',
       el,
-    ).filter((x) => !x.hidden);
+    ).filter((x) => !x.hidden && x.getClientRects().length);
     const first = controls[0],
       last = controls.at(-1);
     if (e.shiftKey && document.activeElement === first) {
@@ -564,29 +527,34 @@ function drawer(title, html, onSubmit) {
   $("#close-drawer").onclick = closeDrawer;
   $("#detail-form").onsubmit = async (e) => {
     e.preventDefault();
+    if (e.target.dataset.submitting) return;
+    e.target.dataset.submitting = 'true';
     try {
       await onSubmit(new FormData(e.target));
     } catch (err) {
       $(".form-error", el).textContent = err.message;
+    } finally {
+      delete e.target.dataset.submitting;
     }
   };
   $("input,select,textarea,button", el)?.focus();
   return el;
 }
-function editTask(id) {
+function editTask(id, defaults = {}) {
   if (isWidget) {
     bridge.desktop("open", id);
     return;
   }
-  const t = state.tasks.find((t) => t.id === id),
-    v = t || {
+  let t = state.tasks.find((t) => t.id === id);
+  const originalTask = t ? JSON.stringify(t) : '';
+  const v = t || {
       title: "",
       notes: "",
-      date: view === "today" ? dateKey() : "",
+      date: view === "today" ? dateKey() : view === 'calendar' ? calendarDate : "",
       time: "",
       priority: "Normal",
       status: "To do",
-      kind: "Task",
+      kind: state.preferences.defaultTaskKind || "Task",
       course: state.courses.some((c) => c.id === courseFilter)
         ? courseFilter
         : "",
@@ -597,23 +565,20 @@ function editTask(id) {
       reminder: "",
       subtasks: [],
       dependencies: [],
+      ...defaults,
     };
   const el = drawer(
     t ? "Task details" : "New task",
-    `${field("Task", "title", v.title, "text", 'required maxlength="500"')}<div class="form-grid">${select("Type", "kind", v.kind, ["Task", "Assignment", "Exam", "Personal"])}${select("Status", "status", v.status, ["To do", "In progress", "Done"])}${field("Due date", "date", v.date, "date")}${field("Due time (optional)", "time", v.time, "time")}${select("Priority", "priority", v.priority, ["Low", "Normal", "High"])}${select("Repeat", "recurrence", v.recurrence, ["None", "Daily", "Weekly"])}${select("Course", "course", v.course, [["", "None"], ...state.courses.map((c) => [c.id, c.name])])}${select("Project", "project", v.project, [["", "None"], ...state.projects.map((c) => [c.id, c.name])])}</div>${field("Assignee (one email, optional)", "assignee", v.assignee || "", "email")}${field("Reminder", "reminder", v.reminder ? localStamp(new Date(v.reminder)) : "", "datetime-local")}<label class="field"><span>Notes</span><textarea name="notes">${esc(v.notes)}</textarea></label><label class="field"><span>Subtasks (one per line; prefix completed items with [x])</span><textarea name="subtasks">${esc(v.subtasks.map((s) => (s.done ? "[x] " : "") + s.title).join("\n"))}</textarea></label>${
-      state.preferences.dev
-        ? `<label class="field"><span>Depends on</span><select name="dependencies" multiple>${state.tasks
-            .filter((x) => x.id !== id)
-            .map(
-              (x) =>
-                `<option value="${x.id}" ${v.dependencies.includes(x.id) ? "selected" : ""}>${esc(x.title)}</option>`,
-            )
-            .join("")}</select></label>`
-        : ""
-    }<div class="drawer-footer">${t ? '<button type="button" class="danger quiet" id="delete-task">Delete</button>' : "<span></span>"}<button class="primary" type="submit">${t ? "Save changes" : "Create task"}</button></div>${t ? '<div class="actions spaced"><button type="button" id="snooze-task">Snooze 15 min</button><button type="button" id="plan-task">Plan study time</button></div>' : ""}`,
+    taskForm({ value: { ...v, reminder: v.reminder ? localStamp(new Date(v.reminder)) : '' }, existing: t, state, field, select, esc }),
     async (f) => {
+      if (t) {
+        const current = state.tasks.find(x => x.id === id);
+        if (!current || JSON.stringify(current) !== originalTask) throw Error('This task changed in another window. Reopen it to review the latest version before saving.');
+        t = current;
+      }
       if (t && !canEdit(t)) throw Error("This shared task is read-only.");
       const data = Object.fromEntries(f);
+      data.estimateMinutes = effort(data.estimateMinutes);
       data.subtasks = data.subtasks
         .split("\n")
         .filter((x) => x.trim())
@@ -648,6 +613,9 @@ function editTask(id) {
       }
     },
   );
+  el.querySelector('#task-source')?.addEventListener('click',async()=>{try{const source=await bridge.syllabus('source',t.sourceRef);drawer('Syllabus source',`<p>${esc(source.filename)} · ${esc(source.location)}</p><pre class="source-passage">${esc(source.excerpt)}</pre><p class="small muted">Accepted deadline: ${esc(source.acceptedDate || 'No deadline')}. This excerpt is stored locally on this PC.</p>`);}catch(error){toast(error.message);}});
+  el.classList.add("task-drawer");
+  el.addEventListener("invalid", event => { event.target.closest("details")?.setAttribute("open", ""); }, true);
   drawerKind = "task";
   selected = id;
   $("#delete-task")?.addEventListener("click", () => removeItem("tasks", id));
@@ -662,49 +630,8 @@ function editTask(id) {
     info.textContent = "Shared task · Viewer access. This task is read-only.";
     el.append(info);
   }
-  if (t && t._sync) {
-    const historyButton = document.createElement("button");
-    historyButton.textContent = "Activity & previous versions";
-    historyButton.type = "button";
-    historyButton.className = "spaced";
-    historyButton.onclick = () => showHistory(t);
-    el.append(historyButton);
-  }
-}
-function showHistory(t) {
-  if (!syncClient) {
-    toast("Sign in to view shared activity.");
-    return;
-  }
-  syncClient
-    .history(t.id)
-    .then(({ history }) => {
-      drawer(
-        "Task activity",
-        history
-          .map(
-            (h) =>
-              `<article class="section-block"><h3>Version ${h.version}</h3><p class="muted small">${esc(new Date(h.at).toLocaleString())}</p><p>${esc(h.data.title)}</p><p>${esc(h.data.notes || "")}</p>${canEdit(t) ? `<button type="button" data-restore-version="${h.version}">Restore this version</button>` : ""}</article>`,
-          )
-          .join("") || "<p>No history yet.</p>",
-        async () => {},
-      );
-      $$("[data-restore-version]").forEach(
-        (b) =>
-          (b.onclick = async () => {
-            const h = history.find(
-              (x) => x.version === Number(b.dataset.restoreVersion),
-            );
-            Object.assign(t, h.data);
-            await save();
-            closeDrawer();
-            toast("Version restored locally. Sync to share the change.");
-          }),
-      );
-    })
-    .catch((e) => toast(e.message));
-}
 
+}
 function localStamp(d) {
   return (
     dateKey(d) +
@@ -740,7 +667,7 @@ async function removeItem(kind, id) {
   if (await save()) {
     closeDrawer();
     toast(
-      "Deleted. Tasks from removed groups remain in All tasks.",
+      "Deleted. Tasks from removed groups remain in Tasks.",
       async () => {
         const revision = state.revision;
         state = { ...snapshot, revision };
@@ -775,7 +702,11 @@ function editCollection(kind, id) {
   );
 }
 function editEvent(id, taskId) {
-  const event = state.events.find((e) => e.id === id),
+  let event = state.events.find((e) => e.id === id);
+  if(event?._sync?.space)return sharing.editEvent(event);
+  if(event?.externalCalendar) {drawer('Connected calendar event',`<h3>${esc(event.title)}</h3><p>${esc(prettyDate(event.start.slice(0,10)))}</p><p>${esc(event.start)} – ${esc(event.end)}</p><p>${esc(event.location || '')}</p><p class="muted">Read-only from ${event.source==='google'?'Google Calendar':'Outlook'}. Edit the original event there; Munka refreshes automatically while running.</p>`);return;}
+  const originalEvent = event ? JSON.stringify(event) : '';
+  const
     linked = state.tasks.find((t) => t.id === taskId),
     e = event || {
       title: linked ? `Study: ${linked.title}` : "",
@@ -786,7 +717,7 @@ function editEvent(id, taskId) {
     };
   drawer(
     event ? "Edit planned time" : "Plan time",
-    `${field("Title", "title", e.title, "text", "required")}${select("Type", "kind", e.kind, ["Study session", "Class", "Work shift", "Appointment", "Event"])}${field("Starts", "start", localStamp(new Date(e.start)), "datetime-local", "required")}${field("Ends", "end", localStamp(new Date(e.end || e.start)), "datetime-local", "required")}${select("Linked task", "taskId", e.taskId, [["", "None"], ...state.tasks.map((t) => [t.id, t.title])])}${
+    `${field("Title", "title", e.title, "text", "required")}${select("Type", "kind", e.kind, ["Study session", "Class", "Work shift", "Appointment", "Event"])}${select('Calendar color', 'color', e.color || 'auto', calendarColors)}${e.allDay ? field('Starts · all day', 'start', e.start.slice(0,10), 'date', 'required') + field('Ends · exclusive date', 'end', (e.end || addDays(e.start.slice(0,10),1)).slice(0,10), 'date', 'required') : field('Starts', 'start', localStamp(new Date(e.start)), 'datetime-local', 'required') + field('Ends', 'end', localStamp(new Date(e.end || e.start)), 'datetime-local', 'required')}${field('Location (optional)', 'location', e.location || '')}${select("Linked task", "taskId", e.taskId, [["", "None"], ...state.tasks.map((t) => [t.id, t.title])])}${
       !event
         ? select("Repeat weekly", "weeks", "1", [
             ["1", "Does not repeat"],
@@ -798,6 +729,15 @@ function editEvent(id, taskId) {
     }<p class="muted small">Planned time never changes the linked task’s deadline. Overlaps are allowed and shown in your schedule.</p><div class="drawer-footer">${event ? '<button type="button" id="delete-event" class="danger quiet">Delete</button>' : "<span></span>"}<button class="primary">Save planned time</button></div>`,
     async (f) => {
       const data = Object.fromEntries(f);
+      if (id) {
+        const current = state.events.find(item => item.id === id);
+        if (!current || JSON.stringify(current) !== originalEvent) throw Error('This event changed in another window. Reopen it to review the latest version before saving.');
+        event = current;
+      }
+      if (event && !canEdit(event)) throw Error('This shared event is read-only.');
+      if (!validCalendarColor(data.color)) throw Error('Choose a valid event color.');
+      if (e.allDay) { data.start += 'T00:00:00'; data.end += 'T00:00:00'; }
+      if (!Number.isFinite(new Date(data.start).getTime()) || !Number.isFinite(new Date(data.end).getTime())) throw Error('Choose valid start and end times.');
       if (new Date(data.end) <= new Date(data.start))
         throw Error("End time must be after start time.");
       const conflict = state.events.some(
@@ -901,7 +841,7 @@ function showImport(mapping) {
         "Restore backup",
         `<p>This backup contains ${b.tasks.length} tasks, ${b.courses.length} courses, ${b.projects.length} projects, and ${b.habits.length} habits.</p><p>Restoring replaces the current planner. Export your current data first if you want to keep it.</p><label class="checkline"><input name="confirm" type="checkbox" required>Replace my current planner</label><div class="drawer-footer"><button class="primary">Restore backup</button></div>`,
         async () => {
-          if (state.preferences.wallpaper)
+          if (capabilities.wallpaper && state.preferences.wallpaper)
             await bridge.desktop("wallpaper-disable");
           const rev = state.revision;
           state = {
@@ -912,6 +852,9 @@ function showImport(mapping) {
               ...b.preferences,
               wallpaper: false,
               widget: false,
+              widgetProjects: false,
+              widgetClickThrough: false,
+              launchAtLogin: state.preferences.launchAtLogin,
               wallpaperOriginal: "",
               wallpaperBackground: "",
             },
@@ -924,27 +867,8 @@ function showImport(mapping) {
       );
       return;
     }
-    if (f.name.endsWith(".ics")) {
-      const events = parseICS(f.text),
-        rows = events.map((e) => ({
-          ...e,
-          duplicate: state.events.some(
-            (x) =>
-              (e.importId && x.importId === e.importId) ||
-              (x.title === e.title && x.start === e.start),
-          ),
-        }));
-      drawer(
-        "Import calendar",
-        `<p>${rows.length} events found. ${rows.filter((e) => e.duplicate).length} duplicates will be skipped.</p>${rows.map((e) => `<p>${esc(e.title)} · ${esc(e.start)} ${e.duplicate ? "(duplicate)" : ""}</p>`).join("")}<div class="drawer-footer"><button class="primary">Import events</button></div>`,
-        async () => {
-          state.events.push(...rows.filter((e) => !e.duplicate));
-          if (await save()) {
-            closeDrawer();
-            toast("Calendar imported");
-          }
-        },
-      );
+    if (/\.ics$/i.test(f.name)) {
+      calendarTools().importSetup(f);
       return;
     }
     const parsed = parseCSV(f.text),
@@ -985,7 +909,7 @@ function commands() {
     `<input id="command-query" aria-label="Find a command" placeholder="Where would you like to go?"><div class="command-results spaced">${[
       ["new-task", "Add a task"],
       ["new-event", "Plan a study session"],
-      ["goto-today", "Go to Today"],
+      ["goto-today", "Go to Home"],
       ["goto-calendar", "Open calendar"],
       ["goto-settings", "Open settings"],
       ["backup", "Export backup"],
@@ -1067,6 +991,16 @@ async function action(a) {
         calendarDate = dateKey();
         render();
         return;
+      case "batch-tasks":
+        return batchTasks();
+      case "personalize": return openOnboarding(extensionTools());
+      case "syllabus": return openSyllabus(extensionTools());
+      case "connections": if(accessMode !== 'account') return munkaAccountPanel('Sign in to connect Google or Outlook calendars.'); return openCalendarConnections(extensionTools()).catch(error=>toast(error.message));
+      case "account-sync": if(accessMode!=='account')return munkaAccountPanel('Sign in to sync your planner across devices.');return sharing.syncPanel();
+      case "shared-calendars": if(accessMode!=='account')return munkaAccountPanel('Sign in to view invitations or share a calendar.');return sharing.calendars();
+      case "capture-plan": return planPrompt(document.querySelector('#quick-add [name=title]')?.value || '');
+      case "day-plan":
+        return openDayPlan({getState:()=>state,save,drawer,field,esc,closeDrawer,toast});
       case "new-task":
         return editTask();
       case "new-event":
@@ -1108,7 +1042,7 @@ async function action(a) {
         } else
           calendarDate = addDays(
             calendarDate,
-            n * (calendarMode === "week" ? 7 : 1),
+            n * (calendarMode === "agenda" ? 14 : calendarMode === "week" ? 7 : 1),
           );
         return render();
       }
@@ -1144,29 +1078,91 @@ async function action(a) {
         return;
       case "test-notification":
         await bridge.desktop(a);
-        toast("Test sent. Check Windows notifications.");
+        toast("Test sent. Check your system notifications.");
         return;
       case "open-main":
         return await bridge.desktop("open");
       case "widget-position":
         return await bridge.desktop("widget-position", isProjectsWidget ? 'projects' : 'daily');
+      case "widget-off":
+        return await bridge.desktop('widget-off', isProjectsWidget ? 'projects' : 'daily');
+      case "widget-recover":
+        return await bridge.desktop('widget-recover');
       case "wallpaper-preview": {
+        if (!capabilities.wallpaper) throw Error('Wallpaper reminders are available in the Windows app.');
         const preview = await bridge.desktop('wallpaper-preview');
         if (preview) drawer('Wallpaper preview', `<p class="small muted">Preview only. Your wallpaper has not changed.</p><img class="wallpaper-preview-image" alt="Wallpaper reminder preview" src="data:image/png;base64,${preview}">`);
         return;
       }
-      case "accept-invite":
-        return acceptInvite();
-      case "account":
-        return accountForm();
-      case "sync":
-        return await doSync();
+      case "munka-signout":
+        return leaveAccount(false);
+      case "munka-switch-account":
+        return leaveAccount(true);
+      case "product-guide":
+        return openProductGuide(extensionTools());
+      case "munka-account":
+        return munkaAccountPanel();
     }
   } catch (e) {
     toast(e.message);
   }
 }
 function bind() {
+  if (view === 'calendar' && !isWidget) {
+    const actions = calendarTools();
+    const scope=()=>calendarScope(calendarSource,cloud.getStatus().calendars);
+    const addShared=(day,title='')=>{
+      const selected=scope();
+      if(!selected.shared||!selected.canCreate) return toast('Adding events is not allowed for this calendar.');
+      return sharing.editEvent(null,selected.calendar,{date:day,title,onSaved:()=>{
+        calendarDrafts.delete('shared:'+selected.calendar.id);
+        const form=$('#calendar-quick-add');if(form?.dataset.creationTarget==='shared:'+selected.calendar.id)form.elements.title.value='';
+      }});
+    };
+    const quick = () => $('#calendar-quick-add input[name=title]')?.focus();
+    bindCalendar({
+      root: $('.calendar-workspace'), onError: error => toast(error.message),
+      onMove: actions.move, onMoveDialog: actions.moveDialog,
+      onOpen: (type, id) => type === 'task' ? editTask(id) : editEvent(id),
+      onSelect: (day, showDetails = false) => {
+        calendarDate = day; render();
+        if (showDetails) { const panel = $('.cal-selected'); panel?.scrollIntoView({block:'nearest'}); panel?.focus({preventScroll:true}); }
+      },
+      onAdd: day => { calendarDate=day; if(scope().shared)return addShared(day); if(!scope().canCreate)return; render(); $('#calendar-quick-add input[name=date]').value = day; quick(); },
+      onPlan: day => { calendarDate=day; if(scope().shared)return addShared(day); if(scope().canCreate)editEvent(); },
+      onStudy: (id, day) => {
+        const task = state.tasks.find(t => t.id === id);
+        if (!task || !canEdit(task)) return toast('This task is no longer editable.');
+        calendarDate = day; editEvent(null,id);
+      },
+      onQuick: async input => {
+        if(scope().missing)return toast('Calendar access changed. Refresh or choose another calendar.');
+        if(scope().shared)return addShared(input.date,input.title);
+        if(!scope().canCreate)return toast('Choose My planner to add a task.');
+        if (await actions.addDraft({...input,kind:state.preferences.defaultTaskKind || "Task"})) {
+          $('#calendar-quick-add input[name=title]').value = '';
+          quick();
+        }
+      },
+      onFilter: async (key, value) => {
+        if (key === 'empty') { state.preferences.calendarAgendaEmpty = value; await save(); return; }
+        if (key === 'done') calendarShowDone = value; else if (key === 'focus') calendarFocus = value; else {calendarSource=value; if(value.startsWith('shared:'))calendarFocus='all';} render();
+        if(key==='source')$('#calendar-picker-trigger')?.focus({preventScroll:true});
+      },
+      onAction: name => {
+        if (name === 'clear') { calendarFocus = 'all'; calendarSource = 'all'; calendarShowDone = true; render(); }
+        if (name === 'guided') actions.guided(calendarDate);
+        if (name === 'batch') batchTasks();
+        if (name === 'plan-prompt') planPrompt(document.querySelector('#calendar-quick-add [name=title]')?.value || '');
+        if (name === 'connections') action('connections');
+        if (name === 'shared') action('shared-calendars');
+        if (name === 'share-current') {const selected=scope(); if(accessMode!=='account')return munkaAccountPanel('Sign in to invite people or share a calendar.'); if(selected.shared)sharing.shareCalendar(selected.calendar).catch(error=>toast(error.message)); else action('shared-calendars');}
+        if (name === 'import') actions.importSetup();
+        if (name === 'details') editTask(null, Object.fromEntries(new FormData($('#calendar-quick-add'))));
+      },
+    });
+  }
+  if (isWidget && window.munka) bindOverlayControls({ bridge, surface: isProjectsWidget ? 'projects' : 'daily', onError: error => toast(error.message) });
   const sizeControl = document.querySelector('#widget-size');
   if (sizeControl) sizeControl.onchange = async e => {
     const size = e.target.value;
@@ -1177,6 +1173,19 @@ function bind() {
     } else { state.preferences[key] = size; await save(); }
   };
   const customize = document.querySelector('.widget-customize');
+  const projectsSizeControl = document.querySelector('#projects-widget-size');
+  if (projectsSizeControl) projectsSizeControl.onchange = async e => {
+    try {
+      if (window.munka) await bridge.desktop('widget-size', { surface: 'projects', size: e.target.value });
+      else { state.preferences.projectsWidgetSize = e.target.value; await save(); }
+    } catch (error) { toast(error.message); }
+  };
+  const designControl = document.querySelector('#widget-design');
+  if (designControl) designControl.onchange = async e => {
+    state.preferences.widgetSurface = e.target.value === 'seamless' ? 'seamless' : 'panel';
+    if (e.target.value !== 'seamless') state.preferences.widgetDesign = e.target.value;
+    await save();
+  };
   if (customize) customize.ontoggle = () => { widgetAppearanceOpen = customize.open; };
   $$("[data-view]").forEach(
     (b) =>
@@ -1190,7 +1199,7 @@ function bind() {
       }),
   );
   $$("[data-action]").forEach(
-    (b) => (b.onclick = () => action(b.dataset.action)),
+    (b) => (b.onclick = () => { b.closest('.account-menu')?.removeAttribute('open'); action(b.dataset.action); }),
   );
   $$("[data-task]").forEach(
     (b) => (b.onclick = () => editTask(b.dataset.task)),
@@ -1210,6 +1219,27 @@ function bind() {
   $$("[data-snooze]").forEach(
     (b) => (b.onclick = () => snooze(b.dataset.snooze)),
   );
+  $$('[data-widget-hide]').forEach(button => button.onclick = async () => {
+    const id=button.dataset.widgetHide;
+    const nextId = button.closest('.task-row').nextElementSibling?.querySelector('[data-widget-hide]')?.dataset.widgetHide;
+    const previousId = button.closest('.task-row').previousElementSibling?.querySelector('[data-widget-hide]')?.dataset.widgetHide;
+    state.preferences.widgetHiddenTasks=[...new Set([...(state.preferences.widgetHiddenTasks || []),id])];
+    if(await save()) {
+      const next = $$('[data-widget-hide]').find(b => b.dataset.widgetHide === (nextId || previousId));
+      (next || $('[data-widget-restore]') || $('.widget-customize summary'))?.focus({preventScroll:true});
+      toast('Hidden from widgets. Still in your planner.',async()=>{
+        state.preferences.widgetHiddenTasks=(state.preferences.widgetHiddenTasks || []).filter(hidden=>hidden!==id);
+        if (await save()) {
+          toast('Task restored to your widget.');
+          $$('[data-widget-hide]').find(b => b.dataset.widgetHide === id)?.focus({preventScroll:true});
+        }
+      });
+    }
+  });
+  $$('[data-widget-restore]').forEach(button => button.onclick = async () => {
+    state.preferences.widgetHiddenTasks=[];
+    if(await save())toast('Hidden tasks restored. Completed past-due tasks stay tucked away.');
+  });
   $$("[data-event]").forEach(
     (b) => (b.onclick = () => editEvent(b.dataset.event)),
   );
@@ -1240,17 +1270,10 @@ function bind() {
   );
   $$("[data-calendar-mode]").forEach(
     (b) =>
-      (b.onclick = () => {
+      (b.onclick = async () => {
         calendarMode = b.dataset.calendarMode;
-        render();
-      }),
-  );
-  $$("[data-calendar-day]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        calendarDate = b.dataset.calendarDay;
-        calendarMode = "day";
-        render();
+        state.preferences.calendarMode = calendarMode;
+        await save();
       }),
   );
   $$("[data-habit]").forEach(
@@ -1288,15 +1311,18 @@ function bind() {
         render();
       }),
   );
-  $$("[data-share]").forEach(
-    (b) => (b.onclick = () => shareForm(b.dataset.share)),
-  );
   $$("[data-toggle]").forEach(
     (b) =>
       (b.onclick = async () => {
         const k = b.dataset.toggle;
         try {
+          if (k === 'launchAtLogin') {
+            if (!capabilities.launchAtLogin) throw Error('Starting at login is available in the Windows app.');
+            await bridge.desktop('launch-at-login', !state.preferences.launchAtLogin);
+            state = await bridge.load(); render(); return;
+          }
           if (k === "wallpaper") {
+            if (!capabilities.wallpaper) throw Error('Wallpaper reminders are available in the Windows app.');
             await bridge.desktop(
               state.preferences.wallpaper
                 ? "wallpaper-disable"
@@ -1306,8 +1332,8 @@ function bind() {
             render();
             return;
           }
-          if (k === "widget" && !window.munka)
-            throw Error("Desktop widgets are available in the Windows app.");
+          if (['widget', 'widgetProjects', 'widgetClickThrough'].includes(k) && !capabilities.overlays)
+            throw Error("Desktop overlays are available in the Mac and Windows desktop apps.");
           state.preferences[k] = k === 'widgetProjects' ? state.preferences[k] === false : !state.preferences[k];
           if (k === "dev" && !state.preferences.dev) {
             if (view === "dev") view = "settings";
@@ -1336,6 +1362,7 @@ function bind() {
         const title = new FormData(e.target).get("title");
         const n = task({
           title,
+          kind: state.preferences.defaultTaskKind || "Task",
           date: view === "today" ? dateKey() : "",
           course: state.courses.some((c) => c.id === courseFilter)
             ? courseFilter
@@ -1346,7 +1373,11 @@ function bind() {
         });
         state.tasks.push(n);
         runRules(state, "created", n);
-        await save();
+        const submitted = String(title);
+        if(await save()) {
+          const input=$("#quick-add input");
+          if(input?.value===submitted) input.value='';
+        }
         $("#quick-add input")?.focus();
       } catch (e) {
         toast(e.message);
@@ -1364,7 +1395,8 @@ function bind() {
     };
   for (const [id, key] of [
     ["theme", "theme"],
-    ["widget-design", "widgetDesign"],
+    ["widget-ink", "widgetInk"],
+    ["widget-layer", "widgetLayer"],
     ["wallpaper-position", "wallpaperPosition"],
     ["wallpaper-display", "wallpaperDisplay"],
     ["wallpaper-count", "wallpaperCount"],
@@ -1377,170 +1409,96 @@ function bind() {
         await save();
       };
 }
-function accountForm() {
-  drawer(
-    "Connect your account",
-    `<p class="muted small">Use your hosted Munka sync service. The service URL is provided by whoever runs your Munka server.</p>${field("Service URL", "url", state.sync.url || "", "url", 'required placeholder="https://sync.example.com"')}${field("Email", "email", state.sync.account?.email || "", "email", "required")}${field("Password", "password", "", "password", 'required minlength="12" autocomplete="current-password"')}${select(
-      "Action",
-      "mode",
-      "login",
-      [
-        ["login", "Sign in"],
-        ["register", "Create account"],
-      ],
-    )}<p>Before the first sync, Munka will preview how your local planner is merged.</p><button class="primary">Connect</button>${state.sync.account ? '<button type="button" id="disconnect" class="quiet">Disconnect account</button>' : ""}`,
-    async (f) => {
-      const { SyncClient } = await import("./sync.mjs");
-      if (state.sync.account && state.sync.account.email !== f.get("email"))
-        throw Error("Disconnect the current account before switching users.");
-      syncClient = new SyncClient(f.get("url"));
-      const a = await syncClient.authenticate(
-        f.get("mode"),
-        f.get("email"),
-        f.get("password"),
-      );
-      state.sync.url = f.get("url");
-      state.sync.account = a.user;
-      if (bridge.session)
-        await bridge.session("save", {
-          url: syncClient.url,
-          token: syncClient.token,
-          user: a.user,
-        });
-      state.sync.message = "Connected · First sync needs review";
-      await save();
-      closeDrawer();
-      await doSync();
-    },
-  );
-  $("#disconnect")?.addEventListener("click", async () => {
-    await syncClient?.logout();
-    if (bridge.session) await bridge.session("clear");
-    syncClient = null;
-    state.sync = initialState().sync;
-    await save();
-    closeDrawer();
-  });
-}
-async function doSync() {
-  try {
-    if (!syncClient)
-      throw Error("Sign in again to synchronize. Your local planner is safe.");
-    const preview = await syncClient.preview(state);
-    drawer(
-      "Review synchronization",
-      `<p>${preview.uploads.length} local records to upload. ${preview.downloads.length} remote records to download. ${preview.conflicts.length} conflicts need your choice.</p>${preview.conflicts
-        .map(
-          (c, i) =>
-            `<div class="section-block"><h3>${esc(c.title)} · ${esc(c.field)}</h3>${select(
-              "Keep version",
-              `conflict-${i}`,
-              "remote",
-              [
-                ["remote", "Remote: " + JSON.stringify(c.remote)],
-                ["local", "Local: " + JSON.stringify(c.local)],
-              ],
-            )}</div>`,
-        )
-        .join(
-          "",
-        )}<p class="muted small">Independent changes are merged. Personal settings and desktop preferences stay on this computer.</p><button class="primary">Apply synchronization</button>`,
-      async (f) => {
-        state = await syncClient.apply(state, preview, Object.fromEntries(f));
-        state.sync.auto = true;
-        state.sync.message = "Synced " + new Date().toLocaleTimeString();
-        if (await save()) {
-          closeDrawer();
-          toast("Planner synchronized");
-        }
-      },
-    );
-  } catch (e) {
-    state.sync.message = "Sync failed: " + e.message;
-    await save();
-    toast(state.sync.message);
-  }
-}
-function acceptInvite() {
-  drawer(
-    "Accept invitation",
-    field("Invitation code", "code", "", "text", "required") +
-      '<button class="primary">Accept invitation</button>',
-    async (f) => {
-      if (!syncClient) throw Error("Connect an account first.");
-      await syncClient.accept(f.get("code"));
-      closeDrawer();
-      await doSync();
-    },
-  );
-}
-async function shareForm(id) {
-  if (!state.sync.account || !syncClient) {
-    toast("Connect an account in Settings before sharing.");
-    view = "settings";
-    render();
-    return;
-  }
-  const project = state.projects.find((p) => p.id === id);
-  if (project._sync?.role && project._sync.role !== "owner") {
-    drawer(
-      "Shared project",
-      `<h3>${esc(project.name)}</h3><p>Your role: ${esc(project._sync.role)}</p><button type="button" id="leave-project">Leave project</button>`,
-      async () => {},
-    );
-    $("#leave-project").onclick = async () => {
-      await syncClient.removeMember(id, state.sync.account.id);
-      closeDrawer();
-      await doSync();
-    };
-    return;
-  }
-  drawer(
-    "Share project",
-    `<h3>${esc(project.name)}</h3><p>Only this project and its tasks will be shared. Personal courses, habits, reminders, and other projects stay private.</p>${field("Invite email", "email", "", "email", "required")}${select(
-      "Role",
-      "role",
-      "viewer",
-      [
-        ["viewer", "Viewer — read only"],
-        ["editor", "Editor — manage tasks"],
-      ],
-    )}<button class="primary">Create invitation</button><p id="invitation-result" class="spaced"></p><button type="button" id="manage-members">Manage members</button><div id="members" class="spaced"></div>`,
-    async (f) => {
-      await syncClient.publishProject(
-        project,
-        state.tasks.filter((t) => t.project === id),
-      );
-      const invite = await syncClient.invite(id, f.get("email"), f.get("role"));
-      project.shared = true;
-      await save();
-      $("#invitation-result").textContent =
-        `Invitation code: ${invite.code}. Share this code with your collaborator; it is not sent automatically.`;
-    },
-  );
-  $("#manage-members").onclick = async () => {
-    try {
-      const { members } = await syncClient.members(id);
-      $("#members").innerHTML = members
-        .map(
-          (m) =>
-            `<div class="setting"><span>${esc(m.email)} · ${esc(m.role)}</span>${m.role !== "owner" ? `<button type="button" data-remove-member="${esc(m.userId)}">Remove</button>` : ""}</div>`,
-        )
-        .join("");
-      $$("[data-remove-member]").forEach(
-        (b) =>
-          (b.onclick = async () => {
-            await syncClient.removeMember(id, b.dataset.removeMember);
-            b.closest(".setting").remove();
-          }),
-      );
-    } catch (e) {
-      toast(e.message);
-    }
+function captureAccountReturn(intent = {}) {
+  const quick = $('#calendar-quick-add');
+  const capture = $('#quick-add');
+  return {
+    calendar: quick ? Object.fromEntries(new FormData(quick)) : null,
+    capture: capture ? Object.fromEntries(new FormData(capture)) : null,
+    ...intent,
   };
 }
+let leavingAccount = false;
+async function leaveAccount(switching) {
+  if (leavingAccount) return;
+  leavingAccount = true;
+  cloud.stop(); closeDrawer(); accountReturn = null;
+  accessMode = 'locked'; state = null; accountStatus = null;
+  cleanupEntry?.(); cleanupEntry = null;
+  const host = $('#app'); host.inert = true;
+  // Private planner content is removed immediately. Animate a neutral shell only.
+  host.innerHTML = `<main class="account-entry" aria-busy="true"><div class="entry-form-wrap account-exit" role="status"><h1>${switching ? 'Switching accounts…' : 'Signing out…'}</h1><p>Your plans are saved.</p></div></main>`;
+  let notice = switching ? 'Sign in with another account. Each account has its own planner.' : 'You’re signed out. Sign in or use your local planner.';
+  try {
+    const motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? Promise.resolve() : new Promise(resolve => setTimeout(resolve,160));
+    await Promise.all([bridge.account('signOut'),motion]);
+  } catch(error) {
+    try { await bridge.account('lock'); } catch { /* The renderer remains locked. */ }
+    notice = `Your planner is locked. ${error.message}`;
+  } finally {
+    leavingAccount = false; host.inert = false; showAccountEntry(notice);
+    $('#entry-email')?.focus();
+  }
+}
+function showAccountEntry(notice = '') {
+  calendarDrafts.clear(); calendarRefreshPending=false;
+  cloud.stop();
+  accessMode = 'locked'; closeDrawer(); state = null;
+  cleanupEntry?.();
+  cleanupEntry = mountAccountEntry({host: $('#app'), bridge, version: appVersion.version, notice, returning: !!accountReturn, onEnter: activatePlanner});
+}
+async function activatePlanner(status) {
+  if (!['local','account'].includes(status.mode)) throw Error('Choose how to open Munka.');
+  const next = await bridge.load();
+  cleanupEntry?.(); cleanupEntry = null;
+  accessMode = status.mode; accountStatus = status; state = next;
+  calendarDrafts.clear(); calendarRefreshPending=false;
+  calendarSource='all'; calendarFocus='all';
+  calendarMode = ['day','week','month','agenda'].includes(state.preferences.calendarMode) ? state.preferences.calendarMode : 'month';
+  render();
+  if (!isWidget) {
+    const host = $('#app'); host.classList.remove('planner-enter');
+    void host.offsetWidth; host.classList.add('planner-enter');
+    host.addEventListener('animationend', () => host.classList.remove('planner-enter'), {once:true});
+  }
+  displays = await bridge.desktop('displays');
+  if(!isWidget&&status.mode==='account') {
+    await cloud.start(status.id);
+    if(location.hash.startsWith('#invite='))await sharing.calendars();
+  }else if(!isWidget)cloud.stop();
+  const returning = accountReturn;
+  accountReturn = null;
+  if (returning) {
+    for (const [selector, values] of [['#calendar-quick-add', returning.calendar], ['#quick-add', returning.capture]]) {
+      const form = $(selector);
+      if (form && values) for (const [name, value] of Object.entries(values)) if (form.elements.namedItem(name)) form.elements.namedItem(name).value = value;
+    }
+    if (status.mode === 'account' && returning.assistantPrompt !== undefined) await planPrompt(returning.assistantPrompt);
+    else ($('#calendar-quick-add [name=title]') || $('#quick-add [name=title]'))?.focus();
+    return;
+  }
+  if (!isWidget && bridge.ready) {
+    const pending = await bridge.ready();
+    if (pending && state.tasks.some(task => task.id === pending)) editTask(pending);
+  }
+  if (!isWidget && !appVersion.testProfile && !state.preferences.onboardingVersion) openOnboarding(extensionTools());
+}
+async function munkaAccountPanel(notice = '', intent = {}) {
+  if (accountStatus?.signedIn && accessMode === 'account') {
+    drawer('Munka account', `<p>Signed in as <strong>${esc(accountStatus.email)}</strong>.</p><p>${esc(cloud.getStatus().message)}. Enable personal sync in Settings to use this planner across devices.</p><p class="muted small">${accountStatus.secure ? 'Your session is protected by the operating system.' : 'Your session lasts only while this app is open.'}</p><div class="actions"><button type="button" id="munka-switch-account">Switch account</button><button type="button" id="munka-signout">Sign out</button></div>`);
+    $('#munka-signout').onclick = () => leaveAccount(false);
+    $('#munka-switch-account').onclick = () => leaveAccount(true);
+    return;
+  }
+  accountReturn = captureAccountReturn(intent);
+  await bridge.account?.('lock');
+  showAccountEntry(typeof notice === 'string' ? notice : '');
+}
 document.addEventListener("keydown", (e) => {
+  if (accessMode === 'locked') return;
   if (e.key === "Escape") {
+    const menu = $('.account-menu[open]');
+    if (menu) { menu.removeAttribute('open'); $('#account-menu-toggle')?.focus(); return; }
     closeDrawer();
     return;
   }
@@ -1553,71 +1511,35 @@ document.addEventListener("keydown", (e) => {
     editTask();
   }
 });
-matchMedia("(prefers-color-scheme:dark)").addEventListener("change", () =>
-  render(),
-);
-async function automaticSync() {
-  if (syncBusy || !syncClient || !state.sync.auto || $(".drawer") || isWidget)
-    return;
-  syncBusy = true;
-  try {
-    const preview = await syncClient.preview(state);
-    if (preview.conflicts.length) {
-      state.sync.message = `${preview.conflicts.length} sync conflicts need review in Settings.`;
-      state.sync.conflicts = preview.conflicts;
-      await save();
-      return;
-    }
-    state = await syncClient.apply(state, preview, {});
-    state.sync.message = "Synced " + new Date().toLocaleTimeString();
-    await save();
-  } catch (e) {
-    state.sync.message =
-      "Offline or sync failed. Changes are saved locally; retry in Settings.";
-    if (!state.sync.pending.length)
-      state.sync.pending = [{ at: new Date().toISOString() }];
-    await save();
-  } finally {
-    syncBusy = false;
-  }
-}
-setInterval(automaticSync, 60000);
-window.addEventListener("online", automaticSync);
+document.addEventListener('click', event => {
+  const menu = $('.account-menu[open]');
+  if (menu && !menu.contains(event.target)) menu.removeAttribute('open');
+});
+matchMedia("(prefers-color-scheme:dark)").addEventListener("change", () => {
+  if (state?.preferences.theme === 'system') render();
+});
+bridge.onChange(next => {
+  if (accessMode === 'locked') return;
+  state = next; if (!$('.drawer')) render();
+});
+bridge.onAccessChange?.(next => { if(next.mode === 'locked' && !leavingAccount) showAccountEntry('Sign in or choose Use locally to continue.'); });
+bridge.onOpenTask?.(id => { if(accessMode !== 'locked' && state?.tasks.some(task => task.id === id)) editTask(id); });
 try {
-  state = await bridge.load();
   if (bridge.version) appVersion = await bridge.version();
-  if (bridge.session && !isWidget) {
-    const session = await bridge.session("load");
-    if (session) {
-      const { SyncClient } = await import("./sync.mjs");
-      syncClient = new SyncClient(session.url);
-      syncClient.token = session.token;
-      syncClient.user = session.user;
-    }
+  capabilities = appVersion.capabilities || window.munka?.capabilities || platformCapabilities(appVersion.platform || 'web');
+  document.body.classList.toggle('platform-mac', capabilities.platform === 'darwin');
+  if (!window.munka) await registerMobile();
+  const theme = appVersion.theme || 'system';
+  document.body.classList.toggle('dark', theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme:dark)').matches));
+  if (isWidget) await activatePlanner({mode:'local',signedIn:false});
+  else {
+    let status = {mode:'locked',signedIn:false};
+    try { if(bridge.account) status = await bridge.account('status'); } catch {}
+    if (['account','local'].includes(status.mode)) await activatePlanner(status);
+    else showAccountEntry();
+    await bridge.ready?.();
   }
-  render();
-  displays = await bridge.desktop("displays");
-  bridge.onChange((next) => {
-    state = next;
-    if (!$(".drawer")) render();
-  });
-  if (!isWidget && bridge.onOpenTask) {
-    bridge.onOpenTask((id) => {
-      if (state.tasks.some((task) => task.id === id)) editTask(id);
-    });
-    const pending = await bridge.ready();
-    if (pending && state.tasks.some((task) => task.id === pending))
-      editTask(pending);
-  }
-} catch (e) {
-  $("#app").innerHTML = empty(
-    "Your planner could not open",
-    esc(e.message),
-    null,
-  );
+} catch(error) {
+  if(!isWidget) showAccountEntry(error.message);
+  else $('#app').textContent = error.message;
 }
-
-
-
-
-

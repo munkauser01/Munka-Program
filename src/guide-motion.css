@@ -1,0 +1,30 @@
+/* Figma manual keyframes: 8:63, 8:68, 8:133 and 8:143.
+   Figma exports a two-second preview loop. Interactive playback runs once;
+   all authored active timing/easing is retained, including its settled hold. */
+.drawer.guide-drawer { width:min(100vw,500px); }
+.guide-drawer .drawer-head h2 { font-size:24px; line-height:1.2; max-width:20ch; }
+.guide-lead { color:var(--muted); margin:0 0 22px; }
+.guide-preview { margin:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel); }
+.guide-preview img { display:block; width:416px; max-width:100%; height:auto; border-radius:12px; }
+.guide-preview figcaption { font-size:12px; color:var(--muted); margin:0; padding:10px 14px; background:var(--nav); }
+.guide-caption { font-size:14px; color:var(--muted); margin:22px 0; }
+.guide-progress { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; margin:24px 0 8px; }
+.guide-controls { display:flex; align-items:center; gap:8px; padding-top:14px; border-top:1px solid var(--line); }
+.guide-controls .primary { margin-left:auto; }
+.guide-controls button { min-height:44px; }
+.guide-drawer .drawer-head h2:focus { outline:none; }
+@media(prefers-reduced-motion:no-preference) {
+  .guide-drawer { animation:none; }
+  .guide-preview { animation:guide-opacity 2s linear both,guide-translate 2s linear both; }
+  .guide-caption { animation:guide-caption 2s linear both; }
+  .entry-form-wrap, .planner-enter { animation:account-opacity 2s linear both,account-translate 2s linear both; }
+  .account-exit { animation:account-out-opacity 160ms ease-out both,account-out-translate 160ms ease-out both; }
+}
+@keyframes guide-opacity { 0% {animation-timing-function:cubic-bezier(.22,1,.36,1);opacity:0} 18%,100% {opacity:1} }
+@keyframes guide-translate { 0% {animation-timing-function:cubic-bezier(.22,1,.36,1);translate:0 14px} 18%,100% {translate:0 0} }
+@keyframes guide-caption { 0%,3% {opacity:0;animation-timing-function:cubic-bezier(.22,1,.36,1)} 17%,100% {opacity:1} }
+@keyframes account-opacity { 0% {opacity:0;animation-timing-function:ease-out} 14%,100% {opacity:1} }
+@keyframes account-translate { 0% {translate:0 8px;animation-timing-function:ease-out} 14%,100% {translate:0 0} }
+@keyframes account-out-opacity { from {opacity:1} to {opacity:0} }
+@keyframes account-out-translate { from {translate:0 0} to {translate:0 -6px} }
+@media(max-width:480px) { .guide-controls { flex-wrap:wrap; } .guide-drawer .drawer-head h2 { font-size:22px; } }

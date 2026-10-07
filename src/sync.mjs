@@ -46,8 +46,10 @@ export class SyncClient {
     const result = [];
     for (const kind of kinds)
       for (const original of s[kind]) {
+        if (original.externalCalendar) continue;
         const data = structuredClone(original);
         delete data._sync;
+        delete data.sourceRef;
         let project =
           kind === "projects" && data.shared
             ? data.id
@@ -211,6 +213,7 @@ export class SyncClient {
         const local = s[r.kind].find((x) => x.id === r.id);
         next[r.kind].push({
           ...r.data,
+          ...(local?.sourceRef ? {sourceRef:local.sourceRef} : {}),
           ...(r.project && r.kind === "tasks"
             ? {
                 reminder: local?.reminder || "",
@@ -247,6 +250,7 @@ export class SyncClient {
       ...tasks.map((t) => {
         const data = { ...t };
         delete data._sync;
+        delete data.sourceRef;
         delete data.reminder;
         delete data.notifiedFor;
         delete data.course;

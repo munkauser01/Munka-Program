@@ -1,6 +1,16 @@
 # Munka
 
-Windows planner for school and daily life. Your day, in sight.
+Planner for school and daily life. Your day, in sight.
+
+## Calendar picker update — 0.12.0-beta.3
+
+Calendar now has a searchable custom picker and visible contextual sharing action. Selected shared calendars are the creation destination, with separate private/shared drafts and permission-aware capture. Invitations use Can view / Can edit choices and individual editor permissions. [Picker and sharing guide](outputs/Calendar-Picker-0.12.0-beta.3.md). This Windows/web update reuses the existing Figma icon family; the new editable Figma component is blocked by the Starter MCP limit. Verified downloadable Mac packages below remain beta.2 until a new Mac build is completed.
+
+## Mac and mobile beta — 0.12.0-beta.2
+
+The new source adds Mac build targets and an installable mobile web app. Installed Windows remains 0.11.7. Run `pnpm build:mobile` then `pnpm mobile` for the local phone-layout preview. Phone installation needs an HTTPS-hosted preview. Both Apple Silicon and Intel ZIP/DMG builds passed source and actual packaged-app smoke checks on macOS; downloads and verification are in the [beta guide](outputs/Mac-Mobile-Beta-0.12.0.md). The Mac beta has no Developer ID signing or notarization; physical installation acceptance is pending.
+
+Plans save to separate local/account device stores; account users can explicitly enable cross-device personal sync. Shared calendars include recipient-bound invitations, owner/editor/viewer roles and individual create/edit/delete permissions. An animated Figma guide and account switching are included. Browser sessions remain memory-only. Mobile AI/provider connections and closed-app alerts are pending. [Sync, sharing, guide and beta.2 downloads](outputs/Sync-Sharing-0.12.0.md) · [Draft beta PR](https://github.com/munkauser01/Munka-Program/pull/1). Both Mac beta.2 architectures passed native and packaged-app checks; older guide links refer to beta.1.
 
 ## Development
 
@@ -18,12 +28,19 @@ On Windows, `Launch Munka.cmd` starts the source copy with its folder as the wor
 - [Preview release notes and remaining work](outputs/Release-Notes.md)
 - [Design system](DESIGN.md)
 
-The supplied mobile deck provides branding. This product is a Windows desktop application. Real user data, credentials, local backups, and runtime logs are excluded from version control.
+The supplied mobile deck provides branding. Windows is the current installed release; Mac and mobile are beta work. Real user data, credentials, local backups, and runtime logs are excluded from version control.
 
-## Optional synchronization
+## Munka account and synchronization
 
-The Node.js service in `server/` uses SQLite, password hashing, expiring sessions, invitations, project roles, revision checks, and record history. It requires deployment before PCs can synchronize remotely. See the architecture document for setup and limitations. Local planning does not require a server.
+The Windows app opens a full-page Supabase sign-in screen when signed out. Sign in or explicitly choose Use locally to enter. Create an account, confirm your email if prompted, and sign in; Settings shows your account and sign-out control. The Google button becomes available once the owner configures the Google Web OAuth client in Supabase. See the [backend owner guide](outputs/Munka-Backend-Owner-Guide.md) for testing and setup steps.
+
+Login currently does not upload planner data or enable sharing. Use locally keeps personal planning, imports, backups and widgets; AI proposals and connected calendars require sign-in. Signing out returns to the full-page choice. The prior Node/SQLite sync service remains in source for migration work, but its desktop login and sharing controls are retired. The new Supabase schema and access rules are documented in [backend/supabase/README.md](backend/supabase/README.md) and [the backend plan](outputs/Supabase-Backend-Plan.md). The Supabase sync adapter is upcoming.
 
 ## Release status
 
+Installed Windows: **0.11.7**; current source: **0.12.0-beta.1** — The approved Figma icon family now covers planner actions, calendar controls, account/password screens, widgets and wallpaper. Headings, labels and actions share a consistent Segoe scale and weight. See [the update guide](outputs/Theme-0.11.7.md). The [Windows installer](outputs/release-0.11.7/Munka%20Setup%200.11.7.exe) was installed and opened on October 5; all 82 checked application files matched source. See [installed verification](outputs/release-0.11.7/installed-verification.json). The earlier [grouped navigation/account menu](outputs/Navigation-0.11.6.md) and [0.11.5 refinement](outputs/UI-Refinement-0.11.5.md) remain included. Google login and production email confirmation/recovery setup remain pending. Planner data stays local; Supabase sync and shared-calendar UI are not yet implemented.
+
+The production dependency staging step uses the package manager's local store offline. Run the locked install first; if using a custom store, set `MUNKA_PNPM_STORE` to the same path when building. Set public `MUNKA_AI_PUBLIC_URL`, `MUNKA_GOOGLE_CLIENT_ID` and `MUNKA_OUTLOOK_CLIENT_ID` only once those services are ready. Never put a service credential in these values.
+
 This is an early implementation, not a production-certified release. The implementation status and acceptance checklist distinguish tested behavior, manual checks still needed, and remaining PRD gaps.
+

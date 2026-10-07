@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checks": [
+    "three previews with Next/Back/Skip",
+    "first-use personalization and Settings replay",
+    "keyboard focus",
+    "Figma keyframes active on desktop; static under reduced motion",
+    "account switch isolates both accounts and local planner",
+    "signout clears private content before sign-in"
+  ],
+  "liveAuthentication": false,
+  "errors": []
+}
